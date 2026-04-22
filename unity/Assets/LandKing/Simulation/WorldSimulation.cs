@@ -419,6 +419,7 @@ namespace LandKing.Simulation
             PhaseCulture();
             PhaseMating();
             PhaseSocial();
+            PhaseApeConflict();
             PhaseStress();
         }
 
@@ -454,7 +455,12 @@ namespace LandKing.Simulation
             for (var i = 0; i < _apes.Count; i++)
             {
                 if (!_apes[i].Alive) continue;
-                AdvanceAgeAndElderDeath(_apes[i]);
+                var a = _apes[i];
+                if (_p.SatedHealthRegenPerTick > 0f && a.Hunger > _p.SatedHealthRegenHunger && a.Health < 1f)
+                {
+                    a.Health = System.Math.Min(1f, a.Health + _p.SatedHealthRegenPerTick);
+                }
+                AdvanceAgeAndElderDeath(a);
             }
         }
 
@@ -630,6 +636,89 @@ namespace LandKing.Simulation
                 }
             }
             return null;
+        }
+
+        private static bool CanApeBrawl(LifeStage s) =>
+            s == LifeStage.Youth || s == LifeStage.Adult || s == LifeStage.Elder;
+
+        /// <summary>同岸、曼哈顿 1 格、少/成/年长者偶发扭打；勇气与随机分胜负。0=关。</summary>
+        private void PhaseApeConflict()
+        {
+            if (_p.ConflictEventChance <= 0 || _apes.Count < 2) return;
+            var n = 0;
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive || !CanApeBrawl(a.Stage)) continue;
+                for (var j = i + 1; j < _apes.Count; j++)
+                {
+                    var b = _apes[j];
+                    if (!b.Alive || !CanApeBrawl(b.Stage)) continue;
+                    if (a.Side != b.Side) continue;
+                    if (System.Math.Abs(a.X - b.X) + System.Math.Abs(a.Y - b.Y) != 1) continue;
+                    n++;
+                }
+            }
+            if (n == 0) return;
+            if (_rng.NextDouble() >= _p.ConflictEventChance) return;
+            var pick = _rng.Next(0, n);
+            ApeCell p0 = null, p1 = null;
+            var c = 0;
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive || !CanApeBrawl(a.Stage)) continue;
+                for (var j = i + 1; j < _apes.Count; j++)
+                {
+                    var b = _apes[j];
+                    if (!b.Alive || !CanApeBrawl(b.Stage)) continue;
+                    if (a.Side != b.Side) continue;
+                    if (System.Math.Abs(a.X - b.X) + System.Math.Abs(a.Y - b.Y) != 1) continue;
+                    if (c == pick) { p0 = a; p1 = b; goto pairResolved; }
+                    c++;
+                }
+            }
+        pairResolved:
+            if (p0 == null || p1 == null) return;
+            var aw = (p0.Courage + 1f) * 0.5f + (float)_rng.NextDouble() * 0.2f;
+            var bw = (p1.Courage + 1f) * 0.5f + (float)_rng.NextDouble() * 0.2f;
+            var winner = aw >= bw ? p0 : p1;
+            var loser = aw >= bw ? p1 : p0;
+            var a0 = p0;
+            var b0 = p1;
+            var wBase = _p.ConflictWinnerHealth;
+            if (wBase < 0f) wBase = 0f;
+            var lExtra = _p.ConflictLoserExtraHealth;
+            if (lExtra < 0f) lExtra = 0f;
+            winner.Health -= wBase;
+            loser.Health -= wBase + lExtra;
+            var cs = _p.ConflictStress;
+            if (cs > 0f)
+            {
+                a0.Stress = System.Math.Min(1f, a0.Stress + cs);
+                b0.Stress = System.Math.Min(1f, b0.Stress + cs);
+            }
+            if (winner.Health < 0f) winner.Health = 0f;
+            if (loser.Health < 0f) loser.Health = 0f;
+            LogEvent(WorldEventKind.ApeConflict,
+                $"{Label(winner)} 与 {Label(loser)} 扭打，{Label(loser)} 更吃亏 (tick {_tickCount})");
+            if (loser.Health <= 0.001f) { KillApeInConflict(loser, winner); return; }
+            if (winner.Health <= 0.001f) KillApeInConflict(winner, loser);
+        }
+
+        private void KillApeInConflict(ApeCell victim, ApeCell other)
+        {
+            var hadC = victim.SnapshotCultures();
+            var id = victim.Id;
+            victim.Alive = false;
+            victim.FoodMemX = -1;
+            victim.FoodMemY = -1;
+            victim.FoodMemStrength = 0f;
+            victim.PeerId = -1;
+            victim.PeerMemStrength = 0f;
+            ApplyKinLossStress(id);
+            MaybeSkillExtinctIfLast(hadC);
+            LogEvent(WorldEventKind.ApeKilledInConflict, $"{Label(victim)} 在冲突中伤重不治；对手在旁 (tick {_tickCount})，涉及 {Label(other)}");
         }
 
         private void TrySocialApproach()

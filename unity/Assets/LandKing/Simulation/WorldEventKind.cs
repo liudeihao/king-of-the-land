@@ -19,6 +19,10 @@ namespace LandKing.Simulation
         /// <summary>走兽肉（猎物）被取食。</summary>
         PreyHunted = 11,
         /// <summary>被掠食者扑杀。</summary>
-        Predation = 12
+        Predation = 12,
+        /// <summary>同族相邻扭打，双方挂彩与压力上升（未致死）。</summary>
+        ApeConflict = 13,
+        /// <summary>在同类冲突中伤重死亡。</summary>
+        ApeKilledInConflict = 14
     }
 }

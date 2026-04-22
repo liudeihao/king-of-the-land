@@ -102,6 +102,18 @@ namespace LandKing.Simulation
         public float FruitScoutMemBoost = 0.1f;
         /// <summary>开局随机赋予果记精描的示范者数。</summary>
         public int InitialFruitScoutMentorCount = 0;
+        /// <summary>每 tick：若存在可冲突邻格对，以该概率**触发其中一对**扭打；0=关。</summary>
+        public double ConflictEventChance = 0.01;
+        /// <summary>扭打中判定败方多扣的额外健康（胜方也扣 <see cref="ConflictWinnerHealth"/>）。</summary>
+        public float ConflictLoserExtraHealth = 0.1f;
+        /// <summary>扭打胜方也挂彩；双方至少各扣本值。</summary>
+        public float ConflictWinnerHealth = 0.035f;
+        /// <summary>扭打后双方压力上跳。</summary>
+        public float ConflictStress = 0.1f;
+        /// <summary>饱腹时健康自然回升/ tick，利于从轻伤恢复；0=关。</summary>
+        public float SatedHealthRegenPerTick = 0.0018f;
+        /// <summary>自饱食度高于本值时应用 <see cref="SatedHealthRegenPerTick"/>。</summary>
+        public float SatedHealthRegenHunger = 0.68f;
 
         public SimParams Copy()
         {

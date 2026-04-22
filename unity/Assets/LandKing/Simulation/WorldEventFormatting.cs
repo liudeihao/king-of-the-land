@@ -22,6 +22,8 @@ namespace LandKing.Simulation
                 WorldEventKind.SkillExtinct => "艺绝",
                 WorldEventKind.PreyHunted => "猎食",
                 WorldEventKind.Predation => "掠食",
+                WorldEventKind.ApeConflict => "扭打",
+                WorldEventKind.ApeKilledInConflict => "斗亡",
                 _ => e.Kind.ToString()
             };
             return $"[t{e.Tick}][{tag}] {e.Message}";
