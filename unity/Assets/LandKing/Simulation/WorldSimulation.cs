@@ -699,6 +699,11 @@ namespace LandKing.Simulation
                 var effMating = _p.MatingRoll;
                 if (_p.MatingStressPenalty > 0f)
                     effMating *= 1.0 - _p.MatingStressPenalty * f.Stress;
+                if (_p.MatingGenSocialSigma > 0.0001f)
+                {
+                    var ps = (f.GenSocial + m.GenSocial) * 0.5f;
+                    effMating *= 1.0 + _p.MatingGenSocialSigma * (ps - 0.5f) * 2.0;
+                }
                 if (effMating < 0.00005) effMating = 0.00005;
                 if (_rng.NextDouble() >= effMating) continue;
                 f.PregnancyCountdown = _p.PregnancyDurationTicks;

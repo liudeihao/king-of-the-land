@@ -1,5 +1,6 @@
 {
   "patches": [
+    { "key": "MatingGenSocialSigma", "value": "0.1" },
     { "key": "GeneticLearnScaleAt0", "value": "0.68" },
     { "key": "GeneticLearnScaleAt1", "value": "1.22" },
     { "key": "GeneticVigorHungerSigma", "value": "0.14" },
