@@ -108,9 +108,7 @@ namespace LandKing.Prototype
         private void Update()
         {
             if (_hud == null || _time == null || _world == null || _world.Sim == null) return;
-            var modLine = _mods == null || _mods.ModDisplayNames == null || _mods.ModDisplayNames.Count == 0
-                ? "L1 Mod: 无 (StreamingAssets/Mods/ 为空或无 sim_params.json)"
-                : "L1 Mod: " + string.Join(" ; ", _mods.ModDisplayNames);
+            var modLine = GetModHudLine();
             _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]倍速\n{modLine}\n水位 西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
             if (_current != null)
             {
@@ -150,6 +148,16 @@ namespace LandKing.Prototype
         }
 
         private int Tick() => _time.TickCount;
+
+        private string GetModHudLine()
+        {
+            if (_mods == null) return "L1 Mod: 未初始化";
+            if (!_mods.Success && _mods.Errors != null && _mods.Errors.Count > 0)
+                return "L1 错误: " + _mods.Errors[0] + ( _mods.Errors.Count > 1 ? $" (共{_mods.Errors.Count}条，见Console)" : "");
+            if (_mods.ModDisplayNames == null || _mods.ModDisplayNames.Count == 0)
+                return "L1 Mod: 无 (Mods 下无 mod.json 且含 sim_params 的包)";
+            return "L1: " + string.Join(" -> ", _mods.ModDisplayNames);
+        }
 
         private static string StageName(LifeStage s) => s switch
         {
