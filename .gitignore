@@ -1,0 +1,61 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.lnk
+
+# Editors / IDE
+.idea/
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ------------------------------------------------------------------------------
+# Unity：工程在仓库根下 `unity/` 内
+# 兼容 (1) 项目根 = unity/  与  (2) 项目根 = unity/某项目名/
+# 见：https://github.com/github/gitignore/blob/main/Unity.gitignore
+# ------------------------------------------------------------------------------
+unity/**/[Ll]ibrary/
+unity/**/[Tt]emp/
+unity/**/[Oo]bj/
+unity/**/[Bb]uild/
+unity/**/[Bb]uilds/
+unity/**/[Ll]ogs/
+unity/**/[Uu]ser[Ss]ettings/
+unity/**/[Mm]emoryCaptures/
+unity/**/[Rr]ecordings/
+unity/**/sysinfo.txt
+unity/**/.gradle/
+unity/**/*.apk
+unity/**/*.aab
+unity/**/*.app
+unity/**/*.unitypackage
+unity/**/gradle.properties
+# Unity 3D
+unity/**/*.[Pp]db
+# Unity2D: texturepacker
+unity/**/[Aa]ssets/Plugins/Editor/JetBrains*
+unity/**/JetBrains/Generated*
+# Visual Scripting
+unity/**/[Aa]ssets/Unity.VisualScripting.Generated*
+# 自动生成的 C#/解算方案（可改为提交，由团队决定；先忽略以减噪与合并冲突）
+unity/**/*.csproj
+unity/**/*.unityproj
+unity/**/*.sln
+unity/**/*.suo
+unity/**/*.user
+unity/**/*.userprefs
+unity/**/*.pidb
+unity/**/*.opendb
+unity/**/*.VC.db
+unity/**/*.VC.VC.opendb
+unity/**/.vsconfig
+# Plastic SCM
+unity/**/ignore.conf
+unity/**/plasticsync.locked
+# Rider
+unity/**/.idea/
+# 崩溃与临时
+unity/**/*.stacktrace
+unity/**/*.wlt
