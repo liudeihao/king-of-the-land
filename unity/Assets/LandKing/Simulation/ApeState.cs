@@ -31,6 +31,10 @@ namespace LandKing.Simulation
         public int ParentId0;
         public int ParentId1;
         public float BodyScale;
+        /// <summary>0..1 遗传学习力，影响发明与观摩习得效率。</summary>
+        public float GenLearn;
+        /// <summary>0..1 遗传体质，略影响饥饿损耗与饱腹回血。</summary>
+        public float GenVigor;
         /// <summary>已掌握的文化技艺 id 列表（见 L1 <c>culture_skills.json</c> 合并表）。</summary>
         public string[] CultureSkillIds;
     }

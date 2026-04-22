@@ -148,6 +148,7 @@ namespace LandKing.Prototype
                         $"名字: (下方输入后回车)\n" +
                         $"性别: {(a.IsMale ? "雄" : "雌")}   生命阶段: {StageName(a.Stage)}\n" +
                         $"体型: {a.BodyScale:0.00}   勇气/好奇: {a.Courage:0.0#} / {a.Curiosity:0.0#}\n" +
+                        $"遗传: 学习力 {a.GenLearn * 100f:0}％   体质 {a.GenVigor * 100f:0}％\n" +
                         $"亲缘: {ParentsText(a.ParentId0, a.ParentId1)}\n" +
                         $"饥饿: {a.Hunger * 100f:0}%   健康: {a.Health * 100f:0}%\n" +
                         $"压力: {a.Stress * 100f:0}% ({StressWord(a.Stress)})\n" +

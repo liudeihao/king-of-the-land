@@ -88,6 +88,10 @@ namespace LandKing.Simulation
         public string[] cultureSkillIds;
         /// <summary>v1 旧位标记：1=坚果敲裂，2=果记精描。无 <see cref="cultureSkillIds"/> 时读档迁移用。</summary>
         public int CultureFlags;
+        /// <summary>0..1 遗传学习力；旧档 0+0 表示未存，读档时补默认。</summary>
+        public float genLearn;
+        /// <summary>0..1 遗传体质。</summary>
+        public float genVigor;
     }
 
     [Serializable]

@@ -114,6 +114,14 @@ namespace LandKing.Simulation
         public float SatedHealthRegenPerTick = 0.0018f;
         /// <summary>自饱食度高于本值时应用 <see cref="SatedHealthRegenPerTick"/>。</summary>
         public float SatedHealthRegenHunger = 0.68f;
+        /// <summary>遗传学习力：对「发明每 tick 概率」与观摩基础概率的乘子，genLearn=0 时。</summary>
+        public float GeneticLearnScaleAt0 = 0.68f;
+        /// <summary>遗传学习力乘子，genLearn=1 时。</summary>
+        public float GeneticLearnScaleAt1 = 1.22f;
+        /// <summary>遗传体质：越高略减饥饿损耗；0=关闭（乘子恒为 1）。</summary>
+        public float GeneticVigorHungerSigma = 0.14f;
+        /// <summary>饱腹回血时乘 (1 + 本值×(genVigor-0.5)×2)。</summary>
+        public float GeneticVigorRegenSigma = 0.18f;
 
         public SimParams Copy()
         {

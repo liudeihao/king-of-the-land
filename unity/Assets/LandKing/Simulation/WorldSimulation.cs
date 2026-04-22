@@ -533,7 +533,10 @@ namespace LandKing.Simulation
                 var a = _apes[i];
                 if (_p.SatedHealthRegenPerTick > 0f && a.Hunger > _p.SatedHealthRegenHunger && a.Health < 1f)
                 {
-                    a.Health = System.Math.Min(1f, a.Health + _p.SatedHealthRegenPerTick);
+                    var reg = _p.SatedHealthRegenPerTick;
+                    if (_p.GeneticVigorRegenSigma > 0.0001f)
+                        reg *= 1f + _p.GeneticVigorRegenSigma * ((a.GenVigor - 0.5f) * 2f);
+                    a.Health = System.Math.Min(1f, a.Health + reg);
                 }
                 AdvanceAgeAndElderDeath(a);
             }
@@ -614,7 +617,9 @@ namespace LandKing.Simulation
             var body = 0.85f + (float)_rng.NextDouble() * 0.25f;
             var s0 = 0.1f + (float)_rng.NextDouble() * 0.1f;
             var gname = NarrationNamePools.PickCallName(_rng);
-            _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id, s0, gname));
+            var gL = GeneticsUtil.HeredityTwoParents(mother.GenLearn, sire.GenLearn, _rng);
+            var gV = GeneticsUtil.HeredityTwoParents(mother.GenVigor, sire.GenVigor, _rng);
+            _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id, s0, gname, gL, gV));
             _newViewApeIds.Add(id);
             LogEvent(WorldEventKind.Birth, $"{Label(mother)} 的孩子出生了 (id {id}, tick {_tickCount})");
         }
@@ -943,13 +948,22 @@ namespace LandKing.Simulation
             if (ape.Alive) MaybeTendToParent(ape);
         }
 
-        private float HungerDecay(ApeCell ape) =>
-            ape.Stage switch
+        private float HungerDecay(ApeCell ape)
+        {
+            var d = ape.Stage switch
             {
                 LifeStage.Infant => _p.InfantHungerDecay,
                 LifeStage.Child => _p.ChildHungerDecay,
                 _ => _p.HungerPerTick
             };
+            if (_p.GeneticVigorHungerSigma > 0.0001f)
+                d *= 1f - _p.GeneticVigorHungerSigma * ((ape.GenVigor - 0.5f) * 2f);
+            if (d < 0.0001f) d = 0.0001f;
+            return d;
+        }
+
+        private float GeneticLearnScale(ApeCell a) =>
+            _p.GeneticLearnScaleAt0 + (_p.GeneticLearnScaleAt1 - _p.GeneticLearnScaleAt0) * a.GenLearn;
 
         private void Starve(ApeCell ape)
         {
@@ -1192,7 +1206,9 @@ namespace LandKing.Simulation
                 var sc = 0.88f + (float)rng.NextDouble() * 0.2f;
                 var s0 = 0.1f + (float)rng.NextDouble() * 0.1f;
                 var gname = NarrationNamePools.PickCallName(rng);
-                apes.Add(new ApeCell(nextId, x, y, side, k % 2 == 0, age, cr, cur, sc, -1, -1, s0, gname));
+                var gL = GeneticsUtil.RandomInitial(rng);
+                var gV = GeneticsUtil.RandomInitial(rng);
+                apes.Add(new ApeCell(nextId, x, y, side, k % 2 == 0, age, cr, cur, sc, -1, -1, s0, gname, gL, gV));
                 nextId++;
             }
             return nextId;
@@ -1572,7 +1588,8 @@ namespace LandKing.Simulation
                     var cq = (a.Curiosity + 1f) * 0.5f;
                     if (cq < 0f) cq = 0f;
                     if (cq > 1f) cq = 1f;
-                    var pr = def.ObserveLearn * (0.25f + 0.75f * cq);
+                    var pr = def.ObserveLearn * (0.25f + 0.75f * cq) * GeneticLearnScale(a);
+                    if (pr > 1.0) pr = 1.0;
                     if (_rng.NextDouble() >= pr) continue;
                     var nBefore = CountAliveWithSkill(def.Id);
                     a.AddCulture(def.Id);
@@ -1594,7 +1611,9 @@ namespace LandKing.Simulation
                 if (a.Stage != LifeStage.Adult) continue;
                 if (!MeetsPrereqs(a, def)) continue;
                 if (!InventContextSatisfied(a, def)) continue;
-                if (_rng.NextDouble() >= def.InventPerTick) continue;
+                var invP = def.InventPerTick * GeneticLearnScale(a);
+                if (invP > 1.0) invP = 1.0;
+                if (_rng.NextDouble() >= invP) continue;
                 var nBefore = CountAliveWithSkill(def.Id);
                 a.AddCulture(def.Id);
                 if (nBefore == 0) TryRecordMilestoneFirstDiscovery(a, def.Id);
@@ -1658,6 +1677,8 @@ namespace LandKing.Simulation
             public bool IsMale;
             public float Courage, Curiosity;
             public float BodyScale;
+            public float GenLearn = 0.5f;
+            public float GenVigor = 0.5f;
             public LifeStage Stage;
             public int ParentA = -1, ParentB = -1;
             public int PregnancyCountdown;
@@ -1703,7 +1724,7 @@ namespace LandKing.Simulation
                 return a;
             }
 
-            public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f, string givenName = "")
+            public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f, string givenName = "", float genLearn = 0.5f, float genVigor = 0.5f)
             {
                 Id = id; X = x; Y = y; Side = side; IsMale = male;
                 Age = age; Courage = courage; Curiosity = curiosity; BodyScale = body;
@@ -1711,6 +1732,8 @@ namespace LandKing.Simulation
                 Stage = LifeStageUtil.FromAge(age);
                 Stress = initialStress;
                 GivenName = givenName ?? string.Empty;
+                GenLearn = genLearn;
+                GenVigor = genVigor;
             }
 
             public ApeSaveRecord ToSave() => new ApeSaveRecord
@@ -1741,7 +1764,9 @@ namespace LandKing.Simulation
                 PeerId = PeerId,
                 PeerMemStrength = PeerMemStrength,
                 cultureSkillIds = SortedCultureIdsForSave(),
-                CultureFlags = 0
+                CultureFlags = 0,
+                genLearn = GenLearn,
+                genVigor = GenVigor
             };
 
             public static ApeCell FromSave(ApeSaveRecord r)
@@ -1776,6 +1801,13 @@ namespace LandKing.Simulation
                 a.GivenName = r.givenName ?? string.Empty;
                 if (string.IsNullOrEmpty(a.GivenName))
                     a.GivenName = NarrationNamePools.PickCallNameForLegacyId(r.Id, r.Side);
+                a.GenLearn = r.genLearn;
+                a.GenVigor = r.genVigor;
+                if (r.genLearn <= 0.001f && r.genVigor <= 0.001f)
+                {
+                    a.GenLearn = 0.5f;
+                    a.GenVigor = 0.5f;
+                }
                 if (r.cultureSkillIds != null && r.cultureSkillIds.Length > 0)
                 {
                     for (var i = 0; i < r.cultureSkillIds.Length; i++)
@@ -1821,6 +1853,8 @@ namespace LandKing.Simulation
                 ParentId0 = ParentA,
                 ParentId1 = ParentB,
                 BodyScale = BodyScale,
+                GenLearn = GenLearn,
+                GenVigor = GenVigor,
                 CultureSkillIds = SortedCultureIdsForSave()
             };
         }
