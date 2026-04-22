@@ -380,6 +380,14 @@ namespace LandKing.Simulation
             while (_chronicle.Count > cap) _chronicle.RemoveAt(0);
         }
 
+        /// <summary>L2 脚本经窄接口写入系统类编年史（<c>WorldEventKind.System</c>），用于 Mod 可观测、不可直接改世界状态。</summary>
+        public void AppendL2Chronicle(string modId, string message)
+        {
+            if (string.IsNullOrEmpty(message)) return;
+            var tag = string.IsNullOrEmpty(modId) ? "[L2]" : "[L2:" + modId + "]";
+            LogEvent(WorldEventKind.System, tag + " " + message);
+        }
+
         private void HydrateNarrationFlags()
         {
             if (_p.EastShoreNarrativeTick <= 0) _eastHintLogged = true;

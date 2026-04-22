@@ -25,6 +25,15 @@ namespace LandKing.Prototype
         public int loadPriority;
         public ModDependency[] dependencies;
         public string[] conflicts;
+        /// <summary>相对本包根：L2 Lua 入口，默认 <see cref="L2DataFiles.L2EntryLua"/>。</summary>
+        public string l2Entry;
+    }
+
+    [Serializable]
+    public sealed class L2ModScriptEntry
+    {
+        public string modId;
+        public string filePath;
     }
 
     public sealed class ModInstance
@@ -37,6 +46,8 @@ namespace LandKing.Prototype
         public bool HasWildlife;
         public bool HasCulture;
         public bool HasNarrationNames;
+        public bool HasL2;
+        public string L2FilePath;
     }
 
     /// <summary>从 <c>StreamingAssets/Mods/&lt;folder&gt;/</c> 发现包，解析 <c>mod.json</c> 依赖/冲突，<c>sim_params.json</c> 按解析顺序合并（见 <c>docs/实现/微内核与Mod扩展.md</c> §9）。</summary>
@@ -55,6 +66,8 @@ namespace LandKing.Prototype
             public IReadOnlyList<string> ModDisplayNames;
             public IReadOnlyList<string> LoadOrderDisplay;
             public IReadOnlyList<string> Errors;
+            /// <summary>与 L1 拓扑同序的 L2 脚本；实现见 <see cref="L2ModRuntime"/>。</summary>
+            public IReadOnlyList<L2ModScriptEntry> L2ScriptEntries;
         }
 
         public static Result Load()
@@ -75,7 +88,8 @@ namespace LandKing.Prototype
                     ModFolderNames = Array.Empty<string>(),
                     ModDisplayNames = Array.Empty<string>(),
                     LoadOrderDisplay = Array.Empty<string>(),
-                    Errors = Array.Empty<string>()
+                    Errors = Array.Empty<string>(),
+                    L2ScriptEntries = Array.Empty<L2ModScriptEntry>()
                 };
             }
 
@@ -97,9 +111,24 @@ namespace LandKing.Prototype
                 var hasWild = File.Exists(wildPath);
                 var hasCulture = File.Exists(culturePath);
                 var hasNarr = File.Exists(narrPath);
-                if (!hasMan && !hasParams && !hasWild && !hasCulture && !hasNarr) continue;
                 ModManifest m = null;
                 if (hasMan) m = JsonUtility.FromJson<ModManifest>(File.ReadAllText(manPath));
+                var l2Name = m != null && !string.IsNullOrEmpty(m.l2Entry) ? m.l2Entry.Trim() : L2DataFiles.L2EntryLua;
+                if (l2Name.Length == 0) l2Name = L2DataFiles.L2EntryLua;
+                var modRootF = Path.GetFullPath(dir);
+                var l2Proposed = Path.GetFullPath(Path.Combine(dir, l2Name));
+                var hasL2 = false;
+                string l2FilePath = null;
+                if (File.Exists(l2Proposed) && L2DataFiles.IsPathUnderModRoot(modRootF, l2Proposed))
+                {
+                    hasL2 = true;
+                    l2FilePath = l2Proposed;
+                }
+                else if (File.Exists(l2Proposed) && !L2DataFiles.IsPathUnderModRoot(modRootF, l2Proposed))
+                {
+                    err.Add($"L2 脚本须位于包目录内，非法路径：{folder}/{l2Name}");
+                }
+                if (!hasMan && !hasParams && !hasWild && !hasCulture && !hasNarr && !hasL2) continue;
                 var id = m != null && !string.IsNullOrEmpty(m.id) ? m.id : folder;
                 if (idToFolder.ContainsKey(id)) { err.Add($"重复 mod id「{id}」：文件夹 {idToFolder[id]} 与 {folder}"); continue; }
                 idToFolder[id] = folder;
@@ -113,7 +142,9 @@ namespace LandKing.Prototype
                     HasSimParams = hasParams,
                     HasWildlife = hasWild,
                     HasCulture = hasCulture,
-                    HasNarrationNames = hasNarr
+                    HasNarrationNames = hasNarr,
+                    HasL2 = hasL2,
+                    L2FilePath = l2FilePath
                 });
             }
 
@@ -139,6 +170,7 @@ namespace LandKing.Prototype
             var narrCalls = new List<string>();
             var seenSett = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var seenCall = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var l2ScriptOrder = new List<L2ModScriptEntry>(4);
             foreach (var id in order)
             {
                 var p = packages.First(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
@@ -201,6 +233,8 @@ namespace LandKing.Prototype
                         Debug.LogWarning("[L1] narration_names: " + p.Folder + " — " + ex.Message);
                     }
                 }
+                if (p.HasL2 && !string.IsNullOrEmpty(p.L2FilePath))
+                    l2ScriptOrder.Add(new L2ModScriptEntry { modId = p.Id, filePath = p.L2FilePath });
                 folderOrder.Add(p.Folder);
                 idOrder.Add(p.Id);
                 if (p.Manifest != null)
@@ -234,7 +268,8 @@ namespace LandKing.Prototype
                 ModFolderNames = folderOrder,
                 ModDisplayNames = display,
                 LoadOrderDisplay = loadOrder,
-                Errors = Array.Empty<string>()
+                Errors = Array.Empty<string>(),
+                L2ScriptEntries = l2ScriptOrder
             };
         }
 
@@ -251,7 +286,8 @@ namespace LandKing.Prototype
                 ModFolderNames = Array.Empty<string>(),
                 ModDisplayNames = Array.Empty<string>(),
                 LoadOrderDisplay = Array.Empty<string>(),
-                Errors = e
+                Errors = e,
+                L2ScriptEntries = Array.Empty<L2ModScriptEntry>()
             };
         }
 

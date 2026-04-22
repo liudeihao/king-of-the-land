@@ -1,0 +1,9 @@
+{
+  "id": "l2.hello",
+  "name": "L2 示例（Lua 编年史）",
+  "version": "1.0.0",
+  "kind": "script",
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

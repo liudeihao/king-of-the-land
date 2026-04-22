@@ -2,7 +2,8 @@
     "name": "LandKing.Prototype",
     "rootNamespace": "LandKing.Prototype",
     "references": [
-        "LandKing.Simulation"
+        "LandKing.Simulation",
+        "MoonSharp"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

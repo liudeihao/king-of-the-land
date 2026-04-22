@@ -15,6 +15,8 @@ namespace LandKing.Prototype
         private Transform _wildRoot;
         public EventLog EventLog { get; private set; }
 
+        private L2ModRuntime _l2;
+
         public WorldSimulation Sim => _sim;
         public IReadOnlyList<Ape> Apes => _apes;
         public MapGenerator Map => _map;
@@ -29,6 +31,8 @@ namespace LandKing.Prototype
             go.transform.SetParent(transform, false);
             _map = go.AddComponent<MapGenerator>();
             _sim = new WorldSimulation(randomSeed, simParams, wildlife, culture);
+            _l2 = L2ModRuntime.Create(l1);
+            _l2.SetSimulation(_sim);
             L1ModPersistence.OnNewGame(l1);
             SpawnApeAndMapViews();
         }
@@ -38,6 +42,7 @@ namespace LandKing.Prototype
             if (sim == null) return;
             if (_apeRoot == null) return;
             _sim = sim;
+            _l2?.SetSimulation(_sim);
             for (var i = _apeRoot.childCount - 1; i >= 0; i--) Object.Destroy(_apeRoot.GetChild(i).gameObject);
             _apes.Clear();
             if (_map != null) _map.Build(_sim);
@@ -72,6 +77,7 @@ namespace LandKing.Prototype
         public void StepSimulation()
         {
             _sim.Step();
+            _l2?.AfterSimulationStep();
             if (EventLog != null)
             {
                 foreach (var e in _sim.DrainPendingEvents())

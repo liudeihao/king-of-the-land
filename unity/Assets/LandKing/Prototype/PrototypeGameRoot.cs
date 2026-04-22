@@ -39,7 +39,13 @@ namespace LandKing.Prototype
             if (mods.Success)
             {
                 if (_logPrefix != null)
-                    Debug.Log($"[{_logPrefix}] Prototype: L1 mod(s)={mods.ModFolderNames?.Count ?? 0}, 依赖序 OK。");
+                {
+                    var nL2 = mods.L2ScriptEntries?.Count ?? 0;
+                    Debug.Log(
+                        nL2 > 0
+                            ? $"[{_logPrefix}] Prototype: L1 mod(s)={mods.ModFolderNames?.Count ?? 0}，L2 脚本条数={nL2}，依赖序 OK。"
+                            : $"[{_logPrefix}] Prototype: L1 mod(s)={mods.ModFolderNames?.Count ?? 0}，依赖序 OK。");
+                }
             }
             else
             {
