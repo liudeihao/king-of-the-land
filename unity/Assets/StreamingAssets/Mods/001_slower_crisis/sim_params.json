@@ -1,0 +1,6 @@
+{
+  "patches": [
+    { "key": "DroughtStartTick", "value": "150" },
+    { "key": "DroughtPerTick", "value": "0.001" }
+  ]
+}

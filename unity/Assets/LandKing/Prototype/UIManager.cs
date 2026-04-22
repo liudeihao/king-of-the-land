@@ -18,6 +18,7 @@ namespace LandKing.Prototype
         private InputField _nameField;
         private Button _rain;
         private static Font _uiFont;
+        private L1ModLoader.Result _mods;
 
         public bool IsPointerOverUi() =>
             EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
@@ -28,6 +29,8 @@ namespace LandKing.Prototype
             if (_time == null) _time = GetComponent<TimeManager>();
             if (_eventLog == null) _eventLog = GetComponent<EventLog>();
         }
+
+        public void SetLoadedMods(L1ModLoader.Result mods) => _mods = mods;
 
         public void CreateUi(Transform mainRoot)
         {
@@ -53,11 +56,11 @@ namespace LandKing.Prototype
             prt.anchorMax = new Vector2(0, 0.5f);
             prt.pivot = new Vector2(0, 0.5f);
             prt.anchoredPosition = new Vector2(8, 0);
-            prt.sizeDelta = new Vector2(240, 200);
+            prt.sizeDelta = new Vector2(280, 300);
             p.AddComponent<Image>().color = new Color(0, 0, 0, 0.55f);
-            _detail = MkText(p.transform, 13, new Vector2(6, -8), new Vector2(220, 130), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
+            _detail = MkText(p.transform, 13, new Vector2(6, -8), new Vector2(260, 220), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
             _detail.text = "选中：无";
-            _nameField = MkInput(p.transform, new Vector2(6, -145), new Vector2(200, 28));
+            _nameField = MkInput(p.transform, new Vector2(6, -252), new Vector2(200, 28));
             _nameField.onEndEdit.AddListener(s =>
             {
                 if (_current == null || _world == null) return;
@@ -105,7 +108,10 @@ namespace LandKing.Prototype
         private void Update()
         {
             if (_hud == null || _time == null || _world == null || _world.Sim == null) return;
-            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]倍速\n水位 西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
+            var modLine = _mods == null || _mods.ModDisplayNames == null || _mods.ModDisplayNames.Count == 0
+                ? "L1 Mod: 无 (StreamingAssets/Mods/ 为空或无 sim_params.json)"
+                : "L1 Mod: " + string.Join(" ; ", _mods.ModDisplayNames);
+            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]倍速\n{modLine}\n水位 西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
             if (_current != null)
             {
                 var st = _world.Sim.FindApe(_current.ApeId);
@@ -115,10 +121,11 @@ namespace LandKing.Prototype
                     _detail.text =
                         $"ID: {a.Id}\n" +
                         $"名字: (下方输入后回车)\n" +
-                        $"饥饿: {a.Hunger * 100f:0}%\n" +
-                        $"健康: {a.Health * 100f:0}%\n" +
-                        $"年龄: {a.Age:0.0} 年\n" +
-                        $"面: {(a.Side == ApeSide.Left ? "西" : "东")}\n" +
+                        $"性别: {(a.IsMale ? "雄" : "雌")}   生命阶段: {StageName(a.Stage)}\n" +
+                        $"体型: {a.BodyScale:0.00}   勇气/好奇: {a.Courage:0.0#} / {a.Curiosity:0.0#}\n" +
+                        $"亲缘: {ParentsText(a.ParentId0, a.ParentId1)}\n" +
+                        $"饥饿: {a.Hunger * 100f:0}%   健康: {a.Health * 100f:0}%\n" +
+                        $"年龄: {a.Age:0.0} 年   面: {(a.Side == ApeSide.Left ? "西" : "东")}\n" +
                         (a.Alive
                             ? (a.Hunger < 0.7f ? "状态: 觅食" : "状态: 游荡")
                             : "状态: 死亡");
@@ -143,6 +150,23 @@ namespace LandKing.Prototype
         }
 
         private int Tick() => _time.TickCount;
+
+        private static string StageName(LifeStage s) => s switch
+        {
+            LifeStage.Infant => "婴儿",
+            LifeStage.Child => "幼年",
+            LifeStage.Youth => "青年",
+            LifeStage.Adult => "成年",
+            LifeStage.Elder => "老年",
+            _ => s.ToString()
+        };
+
+        private static string ParentsText(int a, int b)
+        {
+            if (a < 0 && b < 0) return "无";
+            if (a >= 0 && b >= 0) return $"ID {a} & {b}";
+            return a >= 0 ? $"ID {a}" : $"ID {b}";
+        }
 
         private Text MkText(Transform p, int size, Vector2 ap, Vector2 wh, Vector2 aMin, Vector2 aMax, TextAnchor align)
         {
@@ -174,13 +198,13 @@ namespace LandKing.Prototype
             r.sizeDelta = wh;
             var f = o.AddComponent<InputField>();
             var bg = new GameObject("B");
-            bg.transform.SetParent(o, false);
+            bg.transform.SetParent(o.transform, false);
             var br = bg.AddComponent<RectTransform>();
             Stretch(br);
             bg.AddComponent<Image>().color = new Color(0.1f, 0.1f, 0.1f, 0.8f);
             f.targetGraphic = bg.GetComponent<Image>();
             var to = new GameObject("Text");
-            to.transform.SetParent(o, false);
+            to.transform.SetParent(o.transform, false);
             var tr = to.AddComponent<RectTransform>();
             Stretch(tr);
             tr.offsetMin = new Vector2(4, 2);
@@ -208,7 +232,7 @@ namespace LandKing.Prototype
             o.AddComponent<Image>().color = new Color(0.1f, 0.2f, 0.4f, 0.95f);
             var b = o.AddComponent<Button>();
             var txo = new GameObject("L");
-            txo.transform.SetParent(o, false);
+            txo.transform.SetParent(o.transform, false);
             var tr = txo.AddComponent<RectTransform>();
             Stretch(tr);
             var tx = txo.AddComponent<Text>();

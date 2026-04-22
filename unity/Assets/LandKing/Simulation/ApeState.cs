@@ -1,7 +1,7 @@
 namespace LandKing.Simulation
 {
     /// <summary>
-    /// Minimal ape state for the milestone-2 prototype (docs/实现/原型构建步骤).
+    /// 可观察的猿状态（里程碑二起；里程碑三增加性格/性别/亲缘/生命阶段）。
     /// </summary>
     public struct ApeState
     {
@@ -14,5 +14,12 @@ namespace LandKing.Simulation
         public int GridX;
         public int GridY;
         public ApeSide Side;
+        public bool IsMale;
+        public float Courage;
+        public float Curiosity;
+        public LifeStage Stage;
+        public int ParentId0;
+        public int ParentId1;
+        public float BodyScale;
     }
 }

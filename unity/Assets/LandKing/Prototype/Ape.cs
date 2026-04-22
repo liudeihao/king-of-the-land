@@ -8,7 +8,8 @@ namespace LandKing.Prototype
     [RequireComponent(typeof(CircleCollider2D))]
     public sealed class Ape : MonoBehaviour
     {
-        [SerializeField] private Color aliveColor = new Color(0.45f, 0.3f, 0.12f);
+        [SerializeField] private Color maleColor = new Color(0.4f, 0.32f, 0.2f);
+        [SerializeField] private Color femaleColor = new Color(0.5f, 0.28f, 0.32f);
         [SerializeField] private Color deadColor = new Color(0.35f, 0.35f, 0.35f);
 
         public int ApeId { get; private set; }
@@ -22,7 +23,7 @@ namespace LandKing.Prototype
             ApeId = id;
             var sr = GetComponent<SpriteRenderer>();
             sr.sprite = Sprite2DUtil.CreateSprite(24, 24, Color.white);
-            sr.color = aliveColor;
+            sr.color = maleColor;
             sr.sortingOrder = 2;
             var col = GetComponent<CircleCollider2D>();
             col.isTrigger = false;
@@ -55,11 +56,26 @@ namespace LandKing.Prototype
 
         public void SyncFromState(ApeState s)
         {
+            var sr = GetComponent<SpriteRenderer>();
             transform.position = new Vector3(s.GridX + 0.5f, s.GridY + 0.5f, 0f);
-            if (!s.Alive) GetComponent<SpriteRenderer>().color = deadColor;
-            var name = !string.IsNullOrEmpty(s.Nickname) ? s.Nickname : string.Empty;
-            if (_label != null) _label.text = name;
+            var sc = s.BodyScale > 0.01f ? s.BodyScale : 1f;
+            transform.localScale = new Vector3(sc, sc, 1f);
+            if (!s.Alive) sr.color = deadColor;
+            else sr.color = s.IsMale ? maleColor : femaleColor;
+            if (_label == null) return;
+            if (!string.IsNullOrEmpty(s.Nickname)) _label.text = s.Nickname;
+            else _label.text = $"ID{s.Id} {(s.IsMale ? "男" : "女")} {StageShort(s.Stage)}";
         }
+
+        private static string StageShort(LifeStage st) => st switch
+        {
+            LifeStage.Infant => "婴",
+            LifeStage.Child => "幼",
+            LifeStage.Youth => "少",
+            LifeStage.Adult => "成",
+            LifeStage.Elder => "长",
+            _ => "?"
+        };
 
         public void SetNicknameAndLabel(string n)
         {

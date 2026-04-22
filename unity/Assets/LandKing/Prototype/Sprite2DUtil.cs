@@ -25,7 +25,7 @@ namespace LandKing.Prototype
             for (var i = 0; i < pixels.Length; i++) pixels[i] = c;
             t.SetPixels(pixels);
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 1f, 0, SpriteMeshType.FullRect, Vector4.zero, false, Vector2.zero);
+            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 1f);
         }
     }
 }

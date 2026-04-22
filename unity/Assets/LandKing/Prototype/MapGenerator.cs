@@ -29,7 +29,7 @@ namespace LandKing.Prototype
                 go.transform.SetParent(transform, false);
                 go.transform.position = new Vector3(x + 0.5f, y + 0.5f, 0f);
                 var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = Sprite.Create(sheet, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f, 0, SpriteMeshType.FullRect, Vector4.zero, false, Vector2.zero);
+                sr.sprite = Sprite.Create(sheet, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
                 go.transform.localScale = new Vector3(0.95f, 0.95f, 1f);
                 sr.sortingOrder = 0;
                 _renderers[x, y] = sr;

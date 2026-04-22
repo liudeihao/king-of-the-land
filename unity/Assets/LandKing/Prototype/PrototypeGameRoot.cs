@@ -15,15 +15,17 @@ namespace LandKing.Prototype
                 main.orthographicSize = 10.5f;
                 main.transform.position = new Vector3(10, 10, -10f);
             }
+            var mods = L1ModLoader.Load();
             var w = gameObject.AddComponent<WorldManager>();
             var t = gameObject.AddComponent<TimeManager>();
             var e = gameObject.AddComponent<EventLog>();
             var u = gameObject.AddComponent<UIManager>();
             _ = gameObject.AddComponent<SelectionManager>();
             w.SetEventLog(e);
-            w.Build();
+            w.Build(42, mods.Sim);
             u.CreateUi(transform);
-            if (_logPrefix != null) Debug.Log($"[{_logPrefix}] Prototype: map 20x20, 10 apes, tick sim ready.");
+            u.SetLoadedMods(mods);
+            if (_logPrefix != null) Debug.Log($"[{_logPrefix}] Prototype: map 20x20, 10 apes, core loop + L1 mod(s)={mods.ModFolderNames?.Count ?? 0}.");
         }
     }
 }

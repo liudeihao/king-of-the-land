@@ -19,9 +19,9 @@ namespace LandKing.Prototype
 
         public void SetEventLog(EventLog log) => EventLog = log;
 
-        public void Build()
+        public void Build(int randomSeed = 42, SimParams simParams = null)
         {
-            _sim = new WorldSimulation(42);
+            _sim = new WorldSimulation(randomSeed, simParams);
             _apeRoot = new GameObject("Apes").transform;
             _apeRoot.SetParent(transform, false);
             var go = new GameObject("Map");
@@ -47,6 +47,14 @@ namespace LandKing.Prototype
             if (EventLog != null)
             {
                 foreach (var line in _sim.StealLogQueue()) EventLog.Add(line);
+            }
+            foreach (var newId in _sim.PullNewApeViewIds())
+            {
+                var o = new GameObject($"Ape_{newId}");
+                o.transform.SetParent(_apeRoot, false);
+                var ape = o.AddComponent<Ape>();
+                ape.Init(this, newId);
+                _apes.Add(ape);
             }
             _map?.RefreshColors();
             SyncAll();

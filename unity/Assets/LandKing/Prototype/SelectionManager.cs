@@ -24,7 +24,7 @@ namespace LandKing.Prototype
                 if (cam == null) return;
                 var w = cam.ScreenToWorldPoint(UnityEngine.Input.mousePosition);
                 w.z = 0f;
-                var hit = Physics2D.OverlapPoint(w, 0f);
+                var hit = Physics2D.OverlapPoint(w);
                 if (hit)
                 {
                     var ape = hit.GetComponent<Ape>();
