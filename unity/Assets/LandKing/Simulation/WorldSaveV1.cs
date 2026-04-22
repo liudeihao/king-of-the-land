@@ -92,6 +92,8 @@ namespace LandKing.Simulation
         public float genLearn;
         /// <summary>0..1 遗传体质。</summary>
         public float genVigor;
+        /// <summary>0..1 遗传社会性。</summary>
+        public float genSocial;
     }
 
     [Serializable]

@@ -149,7 +149,7 @@ namespace LandKing.Prototype
                         $"名字: (下方输入后回车)\n" +
                         $"性别: {(a.IsMale ? "雄" : "雌")}   生命阶段: {StageName(a.Stage)}\n" +
                         $"体型: {a.BodyScale:0.00}   勇气/好奇: {a.Courage:0.0#} / {a.Curiosity:0.0#}\n" +
-                        $"遗传: 学习力 {a.GenLearn * 100f:0}％   体质 {a.GenVigor * 100f:0}％\n" +
+                        $"遗传: 学习力 {a.GenLearn * 100f:0}％   体质 {a.GenVigor * 100f:0}％   社会性 {a.GenSocial * 100f:0}％\n" +
                         $"亲缘: {ParentsText(a.ParentId0, a.ParentId1)}\n" +
                         $"饥饿: {a.Hunger * 100f:0}%   健康: {a.Health * 100f:0}%\n" +
                         $"压力: {a.Stress * 100f:0}% ({StressWord(a.Stress)})\n" +
@@ -198,7 +198,7 @@ namespace LandKing.Prototype
             if (_world?.Sim == null) return string.Empty;
             var list = _world.Sim.GetApeStates();
             var n = 0;
-            double sL = 0, sV = 0;
+            double sL = 0, sV = 0, sS = 0;
             for (var i = 0; i < list.Count; i++)
             {
                 var a = list[i];
@@ -206,9 +206,10 @@ namespace LandKing.Prototype
                 n++;
                 sL += a.GenLearn;
                 sV += a.GenVigor;
+                sS += a.GenSocial;
             }
             if (n == 0) return string.Empty;
-            return $"  |  存活{n}  群均遗传 学{(sL / n) * 100:0}%·体{(sV / n) * 100:0}%";
+            return $"  |  存活{n}  群均遗传 学{(sL / n) * 100:0}%·体{(sV / n) * 100:0}%·社{(sS / n) * 100:0}%";
         }
 
         private string GetModHudLine()

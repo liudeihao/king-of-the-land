@@ -118,6 +118,10 @@ namespace LandKing.Simulation
         public float GeneticLearnScaleAt0 = 0.68f;
         /// <summary>遗传学习力乘子，genLearn=1 时。</summary>
         public float GeneticLearnScaleAt1 = 1.22f;
+        /// <summary>社会性遗传：genSocial=0 时对 <see cref="SocialAdultStepChance"/> 的乘子。</summary>
+        public float GeneticSocialScaleAt0 = 0.74f;
+        /// <summary>社会性遗传：genSocial=1 时乘子。</summary>
+        public float GeneticSocialScaleAt1 = 1.2f;
         /// <summary>遗传体质：越高略减饥饿损耗；0=关闭（乘子恒为 1）。</summary>
         public float GeneticVigorHungerSigma = 0.14f;
         /// <summary>饱腹回血时乘 (1 + 本值×(genVigor-0.5)×2)。</summary>

@@ -35,6 +35,8 @@ namespace LandKing.Simulation
         public float GenLearn;
         /// <summary>0..1 遗传体质，略影响饥饿损耗与饱腹回血。</summary>
         public float GenVigor;
+        /// <summary>0..1 遗传社会性，略影响成年向同族主动挪近的概率。</summary>
+        public float GenSocial;
         /// <summary>已掌握的文化技艺 id 列表（见 L1 <c>culture_skills.json</c> 合并表）。</summary>
         public string[] CultureSkillIds;
     }

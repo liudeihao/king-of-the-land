@@ -3,6 +3,8 @@
     { "key": "GeneticLearnScaleAt0", "value": "0.68" },
     { "key": "GeneticLearnScaleAt1", "value": "1.22" },
     { "key": "GeneticVigorHungerSigma", "value": "0.14" },
-    { "key": "GeneticVigorRegenSigma", "value": "0.18" }
+    { "key": "GeneticVigorRegenSigma", "value": "0.18" },
+    { "key": "GeneticSocialScaleAt0", "value": "0.74" },
+    { "key": "GeneticSocialScaleAt1", "value": "1.2" }
   ]
 }
