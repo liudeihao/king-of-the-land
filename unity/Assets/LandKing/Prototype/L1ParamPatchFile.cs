@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Reflection;
 using LandKing.Simulation;
 using UnityEngine;
 
@@ -19,9 +20,11 @@ namespace LandKing.Prototype
         public string value;
     }
 
-    /// <summary>将补丁应用到 <see cref="SimParams"/>（内核字段名，大小写不敏感）。</summary>
+    /// <summary>将补丁应用到 <see cref="SimParams"/>：<c>key</c> 为全部<strong>公开实例字段</strong>名（与 C# 中一致、大小写不敏感）。</summary>
     public static class SimParamsPatchUtil
     {
+        private static readonly FieldInfo[] SimParamInstanceFields = typeof(SimParams).GetFields(BindingFlags.Public | BindingFlags.Instance);
+
         public static void Apply(SimParams target, L1ParamPatchFile file)
         {
             if (target == null || file?.patches == null) return;
@@ -34,19 +37,24 @@ namespace LandKing.Prototype
 
         private static void ApplyOne(SimParams t, string key, string value)
         {
-            switch (key.ToLowerInvariant())
+            FieldInfo field = null;
+            for (var i = 0; i < SimParamInstanceFields.Length; i++)
             {
-                case "droughtstarttick": if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var d1)) t.DroughtStartTick = d1; break;
-                case "droughtpertick": if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d2)) t.DroughtPerTick = d2; break;
-                case "droughtbuttonthreshold": if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d3)) t.DroughtButtonThreshold = d3; break;
-                case "foodregenintervalticks": if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var f1)) t.FoodRegenIntervalTicks = f1; break;
-                case "matingroll": if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var m1)) t.MatingRoll = m1; break;
-                case "maxapecount": if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var a1)) t.MaxApeCount = a1; break;
-                case "agepertick": if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var a2)) t.AgePerTick = a2; break;
-                case "rainleftwater": if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var r1)) t.RainLeftWater = r1; break;
-                case "foodregenwatermultiplier": if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var w1)) t.FoodRegenWaterMultiplier = w1; break;
-                case "pregnancydurationticks": if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var p1)) t.PregnancyDurationTicks = p1; break;
-                case "elderdeathchance": if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var e1)) t.ElderDeathChance = e1; break;
+                if (string.Equals(SimParamInstanceFields[i].Name, key, StringComparison.OrdinalIgnoreCase)) { field = SimParamInstanceFields[i]; break; }
+            }
+            if (field == null) return;
+            var ft = field.FieldType;
+            if (ft == typeof(int))
+            {
+                if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) field.SetValue(t, n);
+            }
+            else if (ft == typeof(float))
+            {
+                if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var f)) field.SetValue(t, f);
+            }
+            else if (ft == typeof(double))
+            {
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)) field.SetValue(t, d);
             }
         }
     }
