@@ -21,6 +21,7 @@ namespace LandKing.Prototype
         private Button _rain;
         private static Font _uiFont;
         private L1ModLoader.Result _mods;
+        private Text _chronicleTitleText;
 
         public bool IsPointerOverUi() =>
             EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
@@ -50,7 +51,7 @@ namespace LandKing.Prototype
             canvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             canvas.AddComponent<GraphicRaycaster>();
             canvas.transform.SetParent(mainRoot, false);
-            _hud = MkText(canvas.transform, 16, new Vector2(12, -8), new Vector2(720, 72), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
+            _hud = MkText(canvas.transform, 16, new Vector2(12, -8), new Vector2(720, 96), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
             _hud.text = "Tick";
             var p = new GameObject("InfoPanel");
             p.transform.SetParent(canvas.transform, false);
@@ -73,11 +74,29 @@ namespace LandKing.Prototype
             _rain.onClick.AddListener(() => _world?.ApplyRain());
             _rain.gameObject.SetActive(false);
             if (_cameraFollow == null && Camera.main != null) _cameraFollow = Camera.main.GetComponent<CameraFollowSelection>();
-            var chTitle = MkText(canvas.transform, 12, new Vector2(-8, -8), new Vector2(292, 22), new Vector2(1, 1), new Vector2(1, 1), TextAnchor.UpperRight);
-            chTitle.text = "编年史（本局·时间序，最新在底）";
+            var chTitle = MkText(canvas.transform, 12, new Vector2(-8, -8), new Vector2(360, 22), new Vector2(1, 1), new Vector2(1, 1), TextAnchor.UpperRight);
             chTitle.alignment = TextAnchor.UpperRight;
             var chRt = chTitle.GetComponent<RectTransform>();
             chRt.pivot = new Vector2(1, 1);
+            _chronicleTitleText = chTitle;
+            if (_eventLog != null)
+            {
+                var bAll = MkTinyTextButton(canvas.transform, "全部", new Vector2(1, 1), new Vector2(-8, -30));
+                var bHi = MkTinyTextButton(canvas.transform, "要事", new Vector2(1, 1), new Vector2(-64, -30));
+                bAll.onClick.AddListener(() =>
+                {
+                    if (_eventLog == null) return;
+                    _eventLog.ViewFilter = ChronicleViewFilter.All;
+                    UpdateChronicleTitle();
+                });
+                bHi.onClick.AddListener(() =>
+                {
+                    if (_eventLog == null) return;
+                    _eventLog.ViewFilter = ChronicleViewFilter.Highlights;
+                    UpdateChronicleTitle();
+                });
+            }
+            UpdateChronicleTitle();
             var sc = new GameObject("EventScroll");
             sc.transform.SetParent(canvas.transform, false);
             var srt = sc.AddComponent<RectTransform>();
@@ -86,7 +105,7 @@ namespace LandKing.Prototype
             srt.pivot = new Vector2(1, 0.5f);
             srt.anchoredPosition = Vector2.zero;
             srt.offsetMin = new Vector2(-300, 8);
-            srt.offsetMax = new Vector2(-8, -8);
+            srt.offsetMax = new Vector2(-8, -40);
             var scr = sc.AddComponent<ScrollRect>();
             var vp = new GameObject("Viewport");
             vp.transform.SetParent(sc.transform, false);
@@ -132,12 +151,23 @@ namespace LandKing.Prototype
 
         private void Update()
         {
+            if (UnityEngine.Input.GetKeyDown(KeyCode.H) && _eventLog != null && !IsPointerOverUi())
+            {
+                _eventLog.ViewFilter = _eventLog.ViewFilter == ChronicleViewFilter.All
+                    ? ChronicleViewFilter.Highlights
+                    : ChronicleViewFilter.All;
+                UpdateChronicleTitle();
+            }
             if (_hud == null || _time == null || _world == null || _world.Sim == null) return;
             var modLine = GetModHudLine();
             var followLine = GetCameraFollowLine();
             var pauseS = _time.Paused ? "  已暂停" : string.Empty;
             var popG = GetPopulationGeneticsHud();
-            _hud.text = $"Tick: {Tick()}{pauseS}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [Tab]切选中  [V]随镜头\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}{popG}";
+            var s = _world.Sim;
+            var setHud = s != null
+                ? $"\n西岸聚落「{s.WestSettlementName}」  东岸聚落「{s.EastSettlementName}」"
+                : string.Empty;
+            _hud.text = $"Tick: {Tick()}{pauseS}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [Tab]切选中  [V]随镜头  [H]编年史筛选\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}{popG}{setHud}";
             if (_current != null)
             {
                 var st = _world.Sim.FindApe(_current.ApeId);
@@ -150,6 +180,7 @@ namespace LandKing.Prototype
                         $"性别: {(a.IsMale ? "雄" : "雌")}   生命阶段: {StageName(a.Stage)}\n" +
                         $"体型: {a.BodyScale:0.00}   勇气/好奇: {a.Courage:0.0#} / {a.Curiosity:0.0#}\n" +
                         $"遗传: 学习力 {a.GenLearn * 100f:0}％   体质 {a.GenVigor * 100f:0}％   社会性 {a.GenSocial * 100f:0}％\n" +
+                        $"部族: 「{_world.Sim.GetSettlementNameForSide(a.Side)}」·{(a.Side == ApeSide.Left ? "西" : "东")}岸\n" +
                         $"亲缘: {ParentsText(a.ParentId0, a.ParentId1)}\n" +
                         $"饥饿: {a.Hunger * 100f:0}%   健康: {a.Health * 100f:0}%\n" +
                         $"压力: {a.Stress * 100f:0}% ({StressWord(a.Stress)})\n" +
@@ -191,6 +222,39 @@ namespace LandKing.Prototype
             var sel = _selection != null ? _selection : GetComponent<SelectionManager>();
             if (sel == null || sel.Selected == null) return "镜头: 跟随开—点选一只猿以「正在追踪」";
             return "镜头: 正在追踪";
+        }
+
+        private void UpdateChronicleTitle()
+        {
+            if (_chronicleTitleText == null) return;
+            var f = _eventLog != null ? _eventLog.ViewFilter : ChronicleViewFilter.All;
+            var hint = f == ChronicleViewFilter.Highlights ? "不列猎食/传艺" : "全列";
+            _chronicleTitleText.text = $"编年史（{ChronicleViewFilterUtil.Label(f)}，{hint}，最新在底）";
+        }
+
+        private Button MkTinyTextButton(Transform p, string label, Vector2 a, Vector2 ap)
+        {
+            var o = new GameObject("ChFilterBtn");
+            o.transform.SetParent(p, false);
+            var r = o.AddComponent<RectTransform>();
+            r.anchorMin = a;
+            r.anchorMax = a;
+            r.pivot = new Vector2(0.5f, 0.5f);
+            r.anchoredPosition = ap;
+            r.sizeDelta = new Vector2(50, 22);
+            o.AddComponent<Image>().color = new Color(0.12f, 0.12f, 0.16f, 0.9f);
+            var b = o.AddComponent<Button>();
+            var txo = new GameObject("L");
+            txo.transform.SetParent(o.transform, false);
+            var tr = txo.AddComponent<RectTransform>();
+            Stretch(tr);
+            var tx = txo.AddComponent<Text>();
+            tx.font = _uiFont;
+            tx.text = label;
+            tx.fontSize = 11;
+            tx.alignment = TextAnchor.MiddleCenter;
+            tx.color = new Color(0.9f, 0.9f, 0.85f, 1f);
+            return b;
         }
 
         private string GetPopulationGeneticsHud()

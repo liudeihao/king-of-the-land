@@ -1,18 +1,28 @@
 using System.Collections.Generic;
 using System.Text;
 using LandKing.Simulation;
-using UnityEngine;
 using UnityEngine.UI;
 
 namespace LandKing.Prototype
 {
-    /// <summary>右侧滚动编年史；模拟事件带 tick 与类型标签，系统消息可为纯文本。</summary>
+    /// <summary>右侧滚动编年史；按 <see cref="ChronicleViewFilter"/> 可筛掉高频行（猎食/传艺）。</summary>
     public sealed class EventLog : MonoBehaviour
     {
         [SerializeField] private int _max = 50;
-        private readonly List<string> _lines = new List<string>(64);
+        private readonly List<WorldEventRecord> _records = new List<WorldEventRecord>(64);
         private Text _text;
         private ScrollRect _scroll;
+        private ChronicleViewFilter _filter = ChronicleViewFilter.All;
+
+        public ChronicleViewFilter ViewFilter
+        {
+            get => _filter;
+            set
+            {
+                _filter = value;
+                RebuildDisplay();
+            }
+        }
 
         public void Init(Text text, ScrollRect scroll)
         {
@@ -25,46 +35,56 @@ namespace LandKing.Prototype
             text.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
-        public void Add(in WorldEventRecord e) => PushLine(WorldEventFormatting.ToDisplayString(e));
+        public void Add(in WorldEventRecord e) => PushRecord(e);
 
         public void Add(string line)
         {
             if (line == null) return;
-            PushLine(line);
+            PushRecord(new WorldEventRecord
+            {
+                Tick = -1,
+                Kind = WorldEventKind.System,
+                Message = line
+            });
         }
 
-        /// <summary>读档时：以存档内编年史重绘，再追加一条系统提示；之后模拟产生的新事件仍用 <c>Add</c> 重载逐条追加。</summary>
+        /// <summary>读档时：以存档内编年史重绘，再追加一条系统提示；之后新事件走 <see cref="Add(in WorldEventRecord)"/>。</summary>
         public void RebuildFromChronicle(IReadOnlyList<WorldEventRecord> chronicle, string systemTail = null)
         {
-            _lines.Clear();
+            _records.Clear();
             if (chronicle != null)
             {
                 for (var i = 0; i < chronicle.Count; i++)
                 {
-                    _lines.Add(WorldEventFormatting.ToDisplayString(chronicle[i]));
-                    while (_lines.Count > _max) _lines.RemoveAt(0);
+                    _records.Add(chronicle[i]);
+                    while (_records.Count > _max) _records.RemoveAt(0);
                 }
             }
             if (!string.IsNullOrEmpty(systemTail))
             {
-                _lines.Add(systemTail);
-                while (_lines.Count > _max) _lines.RemoveAt(0);
+                _records.Add(new WorldEventRecord { Tick = -1, Kind = WorldEventKind.System, Message = systemTail });
+                while (_records.Count > _max) _records.RemoveAt(0);
             }
-            Rebuild();
+            RebuildDisplay();
         }
 
-        private void PushLine(string s, bool trimHead = true)
+        private void PushRecord(in WorldEventRecord e)
         {
-            _lines.Add(s);
-            while (trimHead && _lines.Count > _max) _lines.RemoveAt(0);
-            Rebuild();
+            _records.Add(e);
+            while (_records.Count > _max) _records.RemoveAt(0);
+            RebuildDisplay();
         }
 
-        private void Rebuild()
+        private void RebuildDisplay()
         {
             if (_text == null) return;
             var b = new StringBuilder();
-            for (var i = 0; i < _lines.Count; i++) b.AppendLine(_lines[i]);
+            for (var i = 0; i < _records.Count; i++)
+            {
+                var e = _records[i];
+                if (!ChronicleViewFilterUtil.IsKindVisible(e.Kind, _filter)) continue;
+                b.AppendLine(WorldEventFormatting.ToDisplayString(e));
+            }
             _text.text = b.ToString();
             if (_scroll != null) _scroll.verticalNormalizedPosition = 0f;
         }

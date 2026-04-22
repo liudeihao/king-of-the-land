@@ -112,6 +112,12 @@ namespace LandKing.Simulation
 
         public int InitialSeed => _initialSeed;
         public SimRng Rng => _rng;
+        /// <summary>本局西岸（左岸）聚落名，供 HUD/叙事；与 <see cref="ApeSide.Left"/> 一致。</summary>
+        public string WestSettlementName => _settlementNameLeft ?? string.Empty;
+        /// <summary>本局东岸（右岸）聚落名。</summary>
+        public string EastSettlementName => _settlementNameRight ?? string.Empty;
+
+        public string GetSettlementNameForSide(ApeSide side) => side == ApeSide.Left ? WestSettlementName : EastSettlementName;
         public WorldSaveV1 ExportSave()
         {
             var m = (int)MapData.Size;
