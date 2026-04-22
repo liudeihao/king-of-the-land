@@ -272,7 +272,7 @@ namespace LandKing.Simulation
             if (_tickCount % _p.FoodRegenIntervalTicks == 0) RegenFood();
             PhaseReproduction();
             PhaseVitals();
-            PhaseFoodMemory();
+            PhaseEpisodicMemory();
             PhaseIntentAndMovement();
             PhaseMating();
             PhaseSocial();
@@ -315,19 +315,34 @@ namespace LandKing.Simulation
             }
         }
 
-        private void PhaseFoodMemory()
+        /// <summary>果记衰减 + 同族「印象」衰减/失效。</summary>
+        private void PhaseEpisodicMemory()
         {
-            if (_p.FoodMemoryDistanceBias <= 0f) return;
+            if (_p.FoodMemoryDistanceBias > 0f)
+            {
+                for (var i = 0; i < _apes.Count; i++)
+                {
+                    var a = _apes[i];
+                    if (!a.Alive) continue;
+                    if (a.FoodMemStrength <= 0f) continue;
+                    var bad = a.FoodMemX < 0 || a.FoodMemY < 0 || !MapData.InBounds(a.FoodMemX, a.FoodMemY) ||
+                              _map.Tiles[a.FoodMemX, a.FoodMemY] != TileType.FruitTree || _map.Food[a.FoodMemX, a.FoodMemY] < 0.01f;
+                    if (bad) a.FoodMemStrength = System.Math.Max(0f, a.FoodMemStrength - 0.28f);
+                    if (_p.FoodMemoryDecayPerTick > 0f) a.FoodMemStrength -= _p.FoodMemoryDecayPerTick;
+                    if (a.FoodMemStrength < 0.02f) { a.FoodMemX = -1; a.FoodMemY = -1; a.FoodMemStrength = 0f; }
+                }
+            }
             for (var i = 0; i < _apes.Count; i++)
             {
                 var a = _apes[i];
                 if (!a.Alive) continue;
-                if (a.FoodMemStrength <= 0f) continue;
-                var bad = a.FoodMemX < 0 || a.FoodMemY < 0 || !MapData.InBounds(a.FoodMemX, a.FoodMemY) ||
-                          _map.Tiles[a.FoodMemX, a.FoodMemY] != TileType.FruitTree || _map.Food[a.FoodMemX, a.FoodMemY] < 0.01f;
-                if (bad) a.FoodMemStrength = System.Math.Max(0f, a.FoodMemStrength - 0.28f);
-                if (_p.FoodMemoryDecayPerTick > 0f) a.FoodMemStrength -= _p.FoodMemoryDecayPerTick;
-                if (a.FoodMemStrength < 0.02f) { a.FoodMemX = -1; a.FoodMemY = -1; a.FoodMemStrength = 0f; }
+                if (a.PeerId >= 0)
+                {
+                    var o = FindApeCellById(a.PeerId);
+                    if (o == null || !o.Alive) a.PeerMemStrength = 0f;
+                }
+                if (a.PeerMemStrength > 0f && _p.PeerMemoryDecayPerTick > 0f) a.PeerMemStrength -= _p.PeerMemoryDecayPerTick;
+                if (a.PeerMemStrength < 0.02f) { a.PeerId = -1; a.PeerMemStrength = 0f; }
             }
         }
 
@@ -493,7 +508,15 @@ namespace LandKing.Simulation
                     if (d <= 0 || d > 6) continue;
                     if (d < best) { best = d; target = o; }
                 }
-                if (target != null) StepToward(a, target.X, target.Y);
+                if (target != null)
+                {
+                    StepToward(a, target.X, target.Y);
+                    if (_p.PeerMemoryReinforce > 0f)
+                    {
+                        a.PeerId = target.Id;
+                        a.PeerMemStrength = System.Math.Min(1f, a.PeerMemStrength + _p.PeerMemoryReinforce);
+                    }
+                }
             }
         }
 
@@ -530,6 +553,8 @@ namespace LandKing.Simulation
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
             ape.FoodMemStrength = 0f;
+            ape.PeerId = -1;
+            ape.PeerMemStrength = 0f;
             LogEvent(WorldEventKind.NaturalDeath, $"{Label(ape)} 衰老离世 (tick {_tickCount})");
         }
 
@@ -590,6 +615,8 @@ namespace LandKing.Simulation
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
             ape.FoodMemStrength = 0f;
+            ape.PeerId = -1;
+            ape.PeerMemStrength = 0f;
             LogEvent(WorldEventKind.Starvation, $"{Label(ape)} 因饥饿死亡 (tick {_tickCount})");
         }
 
@@ -654,12 +681,49 @@ namespace LandKing.Simulation
         {
             if (ape.Stress > 0.45f && _p.StressWanderFreeze > 0f && _rng.NextDouble() < ape.Stress * _p.StressWanderFreeze) return;
             if (_rng.Next(0, 10) < 2) return;
+            if (_p.PeerMemoryWanderBias > 0f && ape.PeerMemStrength > 0.08f && ape.PeerId >= 0)
+            {
+                var peer = FindApeCellById(ape.PeerId);
+                if (peer != null && peer.Alive && _rng.NextDouble() < ape.PeerMemStrength * _p.PeerMemoryWanderBias)
+                {
+                    if (TryWanderNudgeTo(ape, peer.X, peer.Y)) return;
+                }
+            }
+            if (_p.FoodMemoryWanderBias > 0f && _p.FoodMemoryDistanceBias > 0f && ape.FoodMemStrength > 0.1f &&
+                MapData.InBounds(ape.FoodMemX, ape.FoodMemY) &&
+                _map.Tiles[ape.FoodMemX, ape.FoodMemY] == TileType.FruitTree && _map.Food[ape.FoodMemX, ape.FoodMemY] >= 0.01f &&
+                _rng.NextDouble() < ape.FoodMemStrength * _p.FoodMemoryWanderBias)
+            {
+                if (TryWanderNudgeTo(ape, ape.FoodMemX, ape.FoodMemY)) return;
+            }
             for (var k = 0; k < 4; k++)
             {
                 var d = _rng.Next(0, 4);
                 var (dx, dy) = d == 0 ? (1, 0) : d == 1 ? (-1, 0) : d == 2 ? (0, 1) : (0, -1);
                 if (TryMoveTo(ape, ape.X + dx, ape.Y + dy)) return;
             }
+        }
+
+        /// <summary>游荡专用：在能缩短格距的邻格中选一格走一步（不用于觅食主逻辑）。</summary>
+        private bool TryWanderNudgeTo(ApeCell ape, int tx, int ty)
+        {
+            var d0 = System.Math.Abs(ape.X - tx) + System.Math.Abs(ape.Y - ty);
+            if (d0 <= 0) return false;
+            var bestD1 = 9999;
+            var bestDx = 0;
+            var bestDy = 0;
+            for (var di = 0; di < 4; di++)
+            {
+                var (dx, dy) = di == 0 ? (1, 0) : di == 1 ? (-1, 0) : di == 2 ? (0, 1) : (0, -1);
+                var nx = ape.X + dx;
+                var ny = ape.Y + dy;
+                if (!MapData.InBounds(nx, ny) || !_map.IsWalkable(nx, ny)) continue;
+                if (ApeAt(nx, ny)) continue;
+                var d1 = System.Math.Abs(nx - tx) + System.Math.Abs(ny - ty);
+                if (d1 < d0 && d1 < bestD1) { bestD1 = d1; bestDx = dx; bestDy = dy; }
+            }
+            if (bestD1 < 9999) return TryMoveTo(ape, ape.X + bestDx, ape.Y + bestDy);
+            return false;
         }
 
         private static MapData CreateMapAndFood(SimRng rng, SimParams p, out int[] leftCells, out int[] rightCells)
@@ -759,6 +823,8 @@ namespace LandKing.Simulation
             public int FoodMemX = -1;
             public int FoodMemY = -1;
             public float FoodMemStrength;
+            public int PeerId = -1;
+            public float PeerMemStrength;
 
             public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f)
             {
@@ -792,7 +858,9 @@ namespace LandKing.Simulation
                 Stress = Stress,
                 FoodMemX = FoodMemX,
                 FoodMemY = FoodMemY,
-                FoodMemStrength = FoodMemStrength
+                FoodMemStrength = FoodMemStrength,
+                PeerId = PeerId,
+                PeerMemStrength = PeerMemStrength
             };
 
             public static ApeCell FromSave(ApeSaveRecord r)
@@ -820,7 +888,9 @@ namespace LandKing.Simulation
                     Stress = r.Stress,
                     FoodMemX = r.FoodMemX,
                     FoodMemY = r.FoodMemY,
-                    FoodMemStrength = r.FoodMemStrength
+                    FoodMemStrength = r.FoodMemStrength,
+                    PeerId = r.PeerId,
+                    PeerMemStrength = r.PeerMemStrength
                 };
             }
 
@@ -832,6 +902,10 @@ namespace LandKing.Simulation
                 Hunger = Hunger,
                 Health = Health,
                 Age = Age,
+                Stress = Stress,
+                FoodMemoryStrength = FoodMemStrength,
+                PeerImpressionId = PeerId,
+                PeerImpressionStrength = PeerMemStrength,
                 Alive = Alive,
                 Nickname = Nickname,
                 GridX = X,
@@ -843,9 +917,7 @@ namespace LandKing.Simulation
                 Stage = Stage,
                 ParentId0 = ParentA,
                 ParentId1 = ParentB,
-                BodyScale = BodyScale,
-                Stress = Stress,
-                FoodMemoryStrength = FoodMemStrength
+                BodyScale = BodyScale
             };
         }
     }

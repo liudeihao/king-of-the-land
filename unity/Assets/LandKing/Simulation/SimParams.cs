@@ -48,6 +48,14 @@ namespace LandKing.Simulation
         public float FoodMemoryDecayPerTick = 0.007f;
         /// <summary>觅食选树时，记忆格等效减去的格距（再乘记忆强度 0..1）。</summary>
         public float FoodMemoryDistanceBias = 2.2f;
+        /// <summary>游荡时向果树记忆格迈一步的概率系数（再乘果记强度；0=关）。</summary>
+        public float FoodMemoryWanderBias = 0.38f;
+        /// <summary>同族「印象」每 tick 衰减；0=只在与记对象死亡时清。</summary>
+        public float PeerMemoryDecayPerTick = 0.012f;
+        /// <summary>游荡时向所记同族格迈一步的概率系数；0=关。</summary>
+        public float PeerMemoryWanderBias = 0.3f;
+        /// <summary>每次成年社交步进（命中随机后朝同类走）时增加印象，上限 1。</summary>
+        public float PeerMemoryReinforce = 0.14f;
 
         public SimParams Copy()
         {

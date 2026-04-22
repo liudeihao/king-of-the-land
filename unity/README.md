@@ -16,7 +16,7 @@
 
 - **编年史持久化**：`WorldSaveV1.Chronicle` 与 `SimParams.ChronicleMaxEntries`（0=按 64、钳 8..256）控制环形条数；读档时右侧由存档重放。展示由 `WorldEventFormatting` 单点维护。
 - **MVP/里程碑四向**：西、东两岸各一群；旱灾时**河道**随总水位发灰；`SimParams.EastShoreNarrativeTick`（0=不播）可改东岸叙事时刻；[Tab] 在存活者间环选；HUD 有暂停提示与「正在追踪」。
-- **里程碑五（起步）**：每只猿有 0–1 **压力**（`Stress`），旱/饿升、饱腹易降；高压力时游荡有概率**僵停**（`StressWanderFreeze`）。**地点记忆**：饱食果树后记住该格，随时间衰减、树枯加速忘；觅食选树时偏好该格（`FoodMemoryDistanceBias` / `FoodMemoryDecayPerTick`，偏置 0=关记忆）。社交受压力抑制；存档含 `Stress` 与 `FoodMem*`。
+- **里程碑五（起步）**：0–1 **压力**、高压力游荡**僵停**、**同族印象**（成年社交步进命中后强化、衰减、对侧死亡清空）。**果记/游荡偏步**：`FoodMemoryWanderBias` 向记得的果树**挪一格**；**同族偏步**：`PeerMemoryWanderBias`。`SimParams` 与存档含 `PeerId` / `PeerMemStrength` 等，旧档无字段按 0 处理。
 - **L1 数据 Mod**：`Assets/StreamingAssets/Mods/<文件夹>/` 下至少需 `**mod.json` 与/或 `sim_params.json`**. `mod.json` 可含 `id` / `version` / `kind`（`core` 在拓扑同层优先）/ `dependencies`（`id` + `version` 范围，如 `>=1.0.0`）/ `conflicts`（同批不能共存）。`sim_params.json` 仍为 `patches` 表，按**依赖解析后的顺序**叠到 `SimParams`；任一步失败则**整批**回退默认并打 Log + HUD 首条错误。样例 `**000_landking_core`**（仅元数据、无补丁）+ `**001_slower_crisis**`（依赖 `landking.core`、改旱灾参数）。删除 `Mods` 下内容可测纯默认。
 - **存档 v1**（`WorldSaveV1` + `SimRng`）：保存到 `Application.persistentDataPath` 下的 `landking_save_v1.json`，含参数快照、地图、全部猿、水位、PRNG 状态，以及**本局 L1 包文件夹/展示名顺序**与可选 **Chronicle**；**F5** 存、**F9** 读。若读档时 StreamingAssets 里 Mod 组合与存盘时不同，会在事件栏与 Log 中**提示**（世界仍以存档内数据为准）。**V** 开关「镜头跟随当前选中」。
 - 更细的玩法说明见 `docs/实现/原型构建步骤.md`。

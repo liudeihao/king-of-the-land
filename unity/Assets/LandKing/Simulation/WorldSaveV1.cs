@@ -60,5 +60,7 @@ namespace LandKing.Simulation
         public int FoodMemX;
         public int FoodMemY;
         public float FoodMemStrength;
+        public int PeerId;
+        public float PeerMemStrength;
     }
 }

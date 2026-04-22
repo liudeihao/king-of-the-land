@@ -136,6 +136,7 @@ namespace LandKing.Prototype
                         $"饥饿: {a.Hunger * 100f:0}%   健康: {a.Health * 100f:0}%\n" +
                         $"压力: {a.Stress * 100f:0}% ({StressWord(a.Stress)})\n" +
                         $"地点记忆: {FoodMemoryLine(a.FoodMemoryStrength)}\n" +
+                        $"同族印象: {PeerImpressionLine(a.PeerImpressionId, a.PeerImpressionStrength)}\n" +
                         $"年龄: {a.Age:0.0} 年   面: {(a.Side == ApeSide.Left ? "西" : "东")}\n" +
                         (a.Alive
                             ? (a.Hunger < 0.7f ? "状态: 觅食" : "状态: 游荡")
@@ -196,6 +197,12 @@ namespace LandKing.Prototype
             if (m < 0.35f) return $"淡薄 ({m * 100f:0}%)";
             if (m < 0.7f) return $"清楚 ({m * 100f:0}%)";
             return $"清晰 ({m * 100f:0}%)";
+        }
+
+        private static string PeerImpressionLine(int id, float s)
+        {
+            if (s < 0.06f) return "无";
+            return id >= 0 ? $"ID {id}（{s * 100f:0}%）" : "无";
         }
 
         private static string StageName(LifeStage s) => s switch
