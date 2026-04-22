@@ -13,6 +13,7 @@
 - 2026年4月22日（v1.7 原型：`SimParams` 表驱动模拟参数；单 Tick 分阶段；`Assets/StreamingAssets/Mods` 下 L1 补丁 + 示例 `001_slower_crisis`）
 - 2026年4月22日（《微内核与 Mod 扩展》v1.4：新增 **§9 核心 Mod 与依赖解析（草案）**）
 - 2026年4月22日（《微内核》v1.5：L1ModLoader 实现依赖/冲突/版本/拓扑序；样例 `000_landking_core`）
+- 2026年4月22日（原型：存档 v1 + `SimRng`、F5/F9、`landking_save_v1.json`）
 
 ## 本次重构解决了什么混乱
 
