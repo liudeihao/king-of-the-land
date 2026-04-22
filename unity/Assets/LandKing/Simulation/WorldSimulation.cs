@@ -621,7 +621,12 @@ namespace LandKing.Simulation
             var gV = GeneticsUtil.HeredityTwoParents(mother.GenVigor, sire.GenVigor, _rng);
             _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id, s0, gname, gL, gV));
             _newViewApeIds.Add(id);
-            LogEvent(WorldEventKind.Birth, $"{Label(mother)} 的孩子出生了 (id {id}, tick {_tickCount})");
+            var born = FindApeCellById(id);
+            var gl = born != null ? born.GenLearn * 100f : 0f;
+            var gv = born != null ? born.GenVigor * 100f : 0f;
+            var who = born != null ? Label(born) : $"ID{id}";
+            LogEvent(WorldEventKind.Birth,
+                $"{Label(mother)} 诞下 {who}（遗传 学{gl:0}%·体{gv:0}%） (id {id}, tick {_tickCount})");
         }
 
         private float Mix(float a, float b)

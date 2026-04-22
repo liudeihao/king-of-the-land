@@ -5,12 +5,12 @@ namespace LandKing.Simulation
     {
         private static readonly string[] Settlements =
         {
-            "河湾地", "溪谷", "林缘", "丘北", "泽南"
+            "河湾地", "溪谷", "林缘", "丘北", "泽南", "岗下", "塬西", "滩头", "坳口", "坪上"
         };
 
         private static readonly string[] CallNames =
         {
-            "阿木", "岩", "叶", "桑", "茅", "荆", "禾", "溪"
+            "阿木", "岩", "叶", "桑", "茅", "荆", "禾", "溪", "柘", "樟", "檀", "榆", "枫", "橡", "石", "丘", "岗", "崖"
         };
 
         public static string PickSettlement(SimRng rng)

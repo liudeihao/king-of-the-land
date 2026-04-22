@@ -50,7 +50,7 @@ namespace LandKing.Prototype
             canvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             canvas.AddComponent<GraphicRaycaster>();
             canvas.transform.SetParent(mainRoot, false);
-            _hud = MkText(canvas.transform, 16, new Vector2(12, -8), new Vector2(500, 36), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
+            _hud = MkText(canvas.transform, 16, new Vector2(12, -8), new Vector2(720, 72), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
             _hud.text = "Tick";
             var p = new GameObject("InfoPanel");
             p.transform.SetParent(canvas.transform, false);
@@ -136,7 +136,8 @@ namespace LandKing.Prototype
             var modLine = GetModHudLine();
             var followLine = GetCameraFollowLine();
             var pauseS = _time.Paused ? "  已暂停" : string.Empty;
-            _hud.text = $"Tick: {Tick()}{pauseS}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [Tab]切选中  [V]随镜头\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
+            var popG = GetPopulationGeneticsHud();
+            _hud.text = $"Tick: {Tick()}{pauseS}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [Tab]切选中  [V]随镜头\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}{popG}";
             if (_current != null)
             {
                 var st = _world.Sim.FindApe(_current.ApeId);
@@ -190,6 +191,24 @@ namespace LandKing.Prototype
             var sel = _selection != null ? _selection : GetComponent<SelectionManager>();
             if (sel == null || sel.Selected == null) return "镜头: 跟随开—点选一只猿以「正在追踪」";
             return "镜头: 正在追踪";
+        }
+
+        private string GetPopulationGeneticsHud()
+        {
+            if (_world?.Sim == null) return string.Empty;
+            var list = _world.Sim.GetApeStates();
+            var n = 0;
+            double sL = 0, sV = 0;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var a = list[i];
+                if (!a.Alive) continue;
+                n++;
+                sL += a.GenLearn;
+                sV += a.GenVigor;
+            }
+            if (n == 0) return string.Empty;
+            return $"  |  存活{n}  群均遗传 学{(sL / n) * 100:0}%·体{(sV / n) * 100:0}%";
         }
 
         private string GetModHudLine()
