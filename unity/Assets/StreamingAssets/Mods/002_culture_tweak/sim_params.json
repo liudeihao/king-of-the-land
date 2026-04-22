@@ -1,0 +1,9 @@
+{
+  "patches": [
+    { "key": "NutCrackEatBonus", "value": "0.065" },
+    { "key": "PredatorSpookMaxStress", "value": "0.11" },
+    { "key": "PredatorSpookRadius", "value": "3" },
+    { "key": "ObserveLearnFruitScout", "value": "0.014" },
+    { "key": "FruitScoutMemBoost", "value": "0.14" }
+  ]
+}

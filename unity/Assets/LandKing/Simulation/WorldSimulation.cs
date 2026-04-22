@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace LandKing.Simulation
 {
-    /// <summary>Headless world: 双岸、旱/雨、东岸；压力/勇气/好奇；地点与同族记忆；婴幼少弱随亲。编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
+    /// <summary>Headless world: 双岸、旱/雨、东岸；压力/勇气/好奇；地点与同族记忆；婴幼少弱随亲；坚果敲裂观察学习+文化断裂；地上猎物/掠食者。编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
         private readonly SimParams _p;
@@ -23,21 +23,38 @@ namespace LandKing.Simulation
         private bool _droughtLogged;
         private bool _droughtSevereLogged;
         private bool _eastHintLogged;
+        private readonly List<PreyEntity> _prey;
+        private readonly List<PredatorEntity> _predators;
+        private int _nextPreyId;
+        private int _nextPredatorId;
+        private const int NutCrackFlag = 1;
+        private const int FruitScoutFlag = 2;
+        private static readonly int[] TrackedCultureBits = { NutCrackFlag, FruitScoutFlag };
+        private readonly WildlifeRuntimeResult _wildMaterialized;
 
-        public WorldSimulation(int randomSeed = 42, SimParams parameters = null)
+        public WorldSimulation(int randomSeed = 42, SimParams parameters = null, WildlifeRuntimeResult wildlife = null)
         {
             _initialSeed = randomSeed;
             _p = parameters != null ? parameters.Copy() : SimParams.Default.Copy();
+            _wildMaterialized = wildlife ?? WildlifeTableBuilder.FromParamsOnly(_p);
             _chronicle = new List<WorldEventRecord>(ChronicleCap());
             _rng = new SimRng(randomSeed);
             _map = CreateMapAndFood(_rng, _p, out var leftCells, out var rightCells);
             _apes = new List<ApeCell>(20);
+            _prey = new List<PreyEntity>(8);
+            _predators = new List<PredatorEntity>(2);
+            _nextPreyId = 0;
+            _nextPredatorId = 0;
             _nextId = 0;
             _nextId = PlaceInitialApes(_rng, _apes, leftCells, rightCells, _nextId);
+            GrantInitialNutCrackMentors();
+            GrantInitialFruitScoutMentors();
+            FillDefaultWildlife();
         }
 
         private WorldSimulation(SimParams p, MapData map, List<ApeCell> apes, int tickCount, int nextId, int initialSeed, SimRng rng,
-            float waterLeft, float waterRight, bool droughtActive, bool rainUsed, bool droughtLogged)
+            float waterLeft, float waterRight, bool droughtActive, bool rainUsed, bool droughtLogged,
+            List<PreyEntity> prey, List<PredatorEntity> predators, int nextPreyId, int nextPredId, bool fillDefaultWildIfEmpty)
         {
             _p = p;
             _map = map;
@@ -51,6 +68,12 @@ namespace LandKing.Simulation
             _droughtActive = droughtActive;
             _rainUsed = rainUsed;
             _droughtLogged = droughtLogged;
+            _prey = prey ?? new List<PreyEntity>(8);
+            _predators = predators ?? new List<PredatorEntity>(2);
+            _nextPreyId = nextPreyId;
+            _nextPredatorId = nextPredId;
+            _wildMaterialized = WildlifeTableBuilder.FromParamsOnly(p);
+            if (fillDefaultWildIfEmpty) FillDefaultWildlife();
         }
 
         public static WorldSimulation FromSave(WorldSaveV1 data)
@@ -63,9 +86,15 @@ namespace LandKing.Simulation
             var map = RebuildMap(data.MapTiles, data.MapFood);
             var apes = RebuildApes(data.Apes);
             var rng = new SimRng(data.RngState);
+            var prey = RebuildPreyList(data.Prey, p, out var npid);
+            var preds = RebuildPredList(data.Predators, p, out var npd);
+            if (data.NextPreyId > 0) npid = data.NextPreyId;
+            if (data.NextPredatorId > 0) npd = data.NextPredatorId;
+            var fillEmpty = data.Prey == null || data.Prey.Length == 0;
             var sim = new WorldSimulation(
                 p, map, apes, data.TickCount, data.NextId, data.RandomSeed, rng,
-                data.WaterLeft, data.WaterRight, data.DroughtActive, data.RainUsed, data.DroughtLogged);
+                data.WaterLeft, data.WaterRight, data.DroughtActive, data.RainUsed, data.DroughtLogged,
+                prey, preds, npid, npd, fillEmpty);
             sim.LoadChronicleFromSave(data);
             sim.HydrateNarrationFlags();
             return sim;
@@ -103,8 +132,38 @@ namespace LandKing.Simulation
                 Params = _p.Copy(),
                 MapTiles = tiles,
                 MapFood = food,
-                Apes = rec
+                Apes = rec,
+                NextPreyId = _nextPreyId,
+                NextPredatorId = _nextPredatorId
             };
+            if (_prey != null && _prey.Count > 0)
+            {
+                var pn = _prey.Count;
+                data.Prey = new PreySaveV1[pn];
+                for (var i = 0; i < pn; i++)
+                {
+                    var pr = _prey[i];
+                    data.Prey[i] = new PreySaveV1
+                    {
+                        Id = pr.Id, X = pr.X, Y = pr.Y, Alive = pr.Alive, RespawnAtTick = pr.RespawnAtTick,
+                        speciesId = pr.SpeciesId, meatHunger = pr.MeatHunger, respawnDelayTicks = pr.RespawnDelayTicks
+                    };
+                }
+            }
+            if (_predators != null && _predators.Count > 0)
+            {
+                var k = _predators.Count;
+                data.Predators = new PredatorSaveV1[k];
+                for (var i = 0; i < k; i++)
+                {
+                    var d = _predators[i];
+                    data.Predators[i] = new PredatorSaveV1
+                    {
+                        Id = d.Id, X = d.X, Y = d.Y,
+                        speciesId = d.SpeciesId, spookMaxStress = d.SpookMaxStress, spookRadius = d.SpookRadius
+                    };
+                }
+            }
             if (_chronicle != null && _chronicle.Count > 0)
             {
                 var cn = _chronicle.Count;
@@ -143,6 +202,54 @@ namespace LandKing.Simulation
         {
             var list = new List<ApeCell>(rec.Length);
             for (var i = 0; i < rec.Length; i++) list.Add(ApeCell.FromSave(rec[i]));
+            return list;
+        }
+
+        private static List<PreyEntity> RebuildPreyList(PreySaveV1[] a, SimParams p, out int nextId)
+        {
+            nextId = 0;
+            var list = new List<PreyEntity>();
+            if (a == null) return list;
+            var max = 0;
+            for (var i = 0; i < a.Length; i++)
+            {
+                var s = a[i];
+                if (s == null) continue;
+                var meat = s.meatHunger > 0.0001f ? s.meatHunger : p.PreyMeatHunger;
+                var rd = s.respawnDelayTicks > 0 ? s.respawnDelayTicks : System.Math.Max(0, p.PreyRespawnDelayTicks);
+                var sid = !string.IsNullOrEmpty(s.speciesId) ? s.speciesId : WildlifeIds.CoreGrassPrey;
+                list.Add(new PreyEntity
+                {
+                    Id = s.Id, X = s.X, Y = s.Y, Alive = s.Alive, RespawnAtTick = s.RespawnAtTick,
+                    SpeciesId = sid, MeatHunger = meat, RespawnDelayTicks = rd
+                });
+                if (s.Id > max) max = s.Id;
+            }
+            nextId = max + 1;
+            return list;
+        }
+
+        private static List<PredatorEntity> RebuildPredList(PredatorSaveV1[] a, SimParams p, out int nextId)
+        {
+            nextId = 0;
+            var list = new List<PredatorEntity>();
+            if (a == null) return list;
+            var max = 0;
+            for (var i = 0; i < a.Length; i++)
+            {
+                var s = a[i];
+                if (s == null) continue;
+                var sm = s.spookMaxStress > 0.0001f ? s.spookMaxStress : p.PredatorSpookMaxStress;
+                var sr = s.spookRadius > 0 ? s.spookRadius : p.PredatorSpookRadius;
+                var sid = !string.IsNullOrEmpty(s.speciesId) ? s.speciesId : WildlifeIds.CoreStalker;
+                list.Add(new PredatorEntity
+                {
+                    Id = s.Id, X = s.X, Y = s.Y,
+                    SpeciesId = sid, SpookMaxStress = sm, SpookRadius = System.Math.Max(0, sr)
+                });
+                if (s.Id > max) max = s.Id;
+            }
+            nextId = max + 1;
             return list;
         }
 
@@ -246,6 +353,36 @@ namespace LandKing.Simulation
             return null;
         }
 
+        public PreyView[] GetAlivePreyForDisplay()
+        {
+            if (_prey == null || _prey.Count == 0) return System.Array.Empty<PreyView>();
+            var n = 0;
+            for (var i = 0; i < _prey.Count; i++)
+                if (_prey[i].Alive) n++;
+            if (n == 0) return System.Array.Empty<PreyView>();
+            var a = new PreyView[n];
+            n = 0;
+            for (var i = 0; i < _prey.Count; i++)
+            {
+                var p = _prey[i];
+                if (!p.Alive) continue;
+                a[n++] = new PreyView(p.Id, p.X, p.Y, p.SpeciesId);
+            }
+            return a;
+        }
+
+        public PredatorView[] GetPredatorsForDisplay()
+        {
+            if (_predators == null || _predators.Count == 0) return System.Array.Empty<PredatorView>();
+            var a = new PredatorView[_predators.Count];
+            for (var i = 0; i < _predators.Count; i++)
+            {
+                var d = _predators[i];
+                a[i] = new PredatorView(d.Id, d.X, d.Y, d.SpeciesId);
+            }
+            return a;
+        }
+
         public void SetApeNickname(int id, string name)
         {
             for (var i = 0; i < _apes.Count; i++)
@@ -268,12 +405,16 @@ namespace LandKing.Simulation
         public void Step()
         {
             _tickCount++;
+            PhasePreyRevive();
             PhaseEnvironment();
             if (_tickCount % _p.FoodRegenIntervalTicks == 0) RegenFood();
             PhaseReproduction();
             PhaseVitals();
             PhaseEpisodicMemory();
             PhaseIntentAndMovement();
+            PhasePreyWander();
+            PhasePredator();
+            PhaseCulture();
             PhaseMating();
             PhaseSocial();
             PhaseStress();
@@ -540,6 +681,21 @@ namespace LandKing.Simulation
                     if (w < 0.999f) rise += _p.StressDroughtScale * (1f - w);
                 }
                 if (a.Hunger < 0.5f) rise += _p.StressHungerScale * (0.5f - a.Hunger);
+                if (_predators != null && _predators.Count > 0)
+                {
+                    var d = MinManhattanToAnyPredator(a.X, a.Y, out var pi);
+                    if (pi >= 0)
+                    {
+                        var pr = _predators[pi];
+                        if (pr.SpookMaxStress > 0.001f && pr.SpookRadius > 0 && d <= pr.SpookRadius)
+                        {
+                            var te = 1f - d / (float)(pr.SpookRadius + 1);
+                            if (te < 0f) te = 0f;
+                            if (te > 1f) te = 1f;
+                            rise += pr.SpookMaxStress * te;
+                        }
+                    }
+                }
                 var relax = a.Hunger > 0.65f ? _p.StressRelaxPerTick : _p.StressRelaxPerTick * 0.45f;
                 a.Stress = a.Stress + rise - relax;
                 if (a.Stress < 0f) a.Stress = 0f;
@@ -556,12 +712,16 @@ namespace LandKing.Simulation
 
         private void NaturalDeath(ApeCell ape)
         {
+            var id = ape.Id;
+            var hadC = ape.CultureFlags;
             ape.Alive = false;
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
             ape.FoodMemStrength = 0f;
             ape.PeerId = -1;
             ape.PeerMemStrength = 0f;
+            ApplyKinLossStress(id);
+            MaybeSkillExtinctIfLast(hadC);
             LogEvent(WorldEventKind.NaturalDeath, $"{Label(ape)} 衰老离世 (tick {_tickCount})");
         }
 
@@ -586,16 +746,22 @@ namespace LandKing.Simulation
             ape.Hunger -= decay;
             if (ape.Hunger < 0f) ape.Hunger = 0f;
             if (ape.Hunger <= 0f) { Starve(ape); return; }
+            if (TryConsumePrey(ape)) return;
             var t = _map.Tiles[ape.X, ape.Y];
             if (t == TileType.FruitTree && _map.Food[ape.X, ape.Y] >= _p.MinFruitToEat)
             {
-                ape.Hunger = System.Math.Min(1f, ape.Hunger + _p.EatHunger);
+                var eat = _p.EatHunger;
+                if ((ape.CultureFlags & NutCrackFlag) != 0 && _p.NutCrackEatBonus > 0f) eat += _p.NutCrackEatBonus;
+                ape.Hunger = System.Math.Min(1f, ape.Hunger + eat);
                 _map.Food[ape.X, ape.Y] -= _p.MinFruitToEat;
                 if (_p.FoodMemoryDistanceBias > 0f)
                 {
                     ape.FoodMemX = ape.X;
                     ape.FoodMemY = ape.Y;
-                    ape.FoodMemStrength = 1f;
+                    var mem = 1f;
+                    if ((ape.CultureFlags & FruitScoutFlag) != 0 && _p.FruitScoutMemBoost > 0f)
+                        mem = System.Math.Min(1f, 1f + _p.FruitScoutMemBoost);
+                    ape.FoodMemStrength = mem;
                 }
                 if (_map.Food[ape.X, ape.Y] < 0f) _map.Food[ape.X, ape.Y] = 0f;
                 if (_map.Food[ape.X, ape.Y] <= 0.01f) LogEvent(WorldEventKind.FoodDepleted, $"区域({ape.X},{ape.Y})的果树食物耗尽");
@@ -619,13 +785,31 @@ namespace LandKing.Simulation
 
         private void Starve(ApeCell ape)
         {
+            var id = ape.Id;
+            var hadC = ape.CultureFlags;
             ape.Alive = false;
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
             ape.FoodMemStrength = 0f;
             ape.PeerId = -1;
             ape.PeerMemStrength = 0f;
+            ApplyKinLossStress(id);
+            MaybeSkillExtinctIfLast(hadC);
             LogEvent(WorldEventKind.Starvation, $"{Label(ape)} 因饥饿死亡 (tick {_tickCount})");
+        }
+
+        /// <summary>亲代方死亡时，仍将其记在 ParentA/ParentB 的在世血亲压力上跳；亲亡后 <see cref="MaybeTendToParent"/> 自会因 FindApeCell 失败而停。</summary>
+        private void ApplyKinLossStress(int deceasedId)
+        {
+            if (deceasedId < 0 || _p.KinLossStress <= 0f) return;
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if (a.ParentA != deceasedId && a.ParentB != deceasedId) continue;
+                a.Stress += _p.KinLossStress;
+                if (a.Stress > 1f) a.Stress = 1f;
+            }
         }
 
         private bool TryFindTargetTree(ApeCell ape, out int tx, out int ty)
@@ -737,7 +921,11 @@ namespace LandKing.Simulation
             var cq = (ape.Curiosity + 1f) * 0.5f;
             if (cq < 0f) cq = 0f;
             if (cq > 1f) cq = 1f;
-            var sm = ape.Stage == LifeStage.Infant ? 1f : ape.Stage == LifeStage.Child ? 0.9f : 0.48f;
+            var sm = ape.Stage == LifeStage.Infant
+                ? _p.ParentImitateInfantMult
+                : ape.Stage == LifeStage.Child
+                    ? _p.ParentImitateChildMult
+                    : _p.ParentImitateYouthMult;
             var pr = _p.ParentImitateBaseChance * (0.35f + 0.65f * cq) * sm;
             if (_rng.NextDouble() >= pr) return;
             StepToward(ape, par.X, par.Y);
@@ -841,6 +1029,414 @@ namespace LandKing.Simulation
             return nextId;
         }
 
+        private void GrantInitialNutCrackMentors() =>
+            GrantFlagsToInitialMentors(_p.InitialNutCrackMentorCount, NutCrackFlag);
+
+        private void GrantInitialFruitScoutMentors() =>
+            GrantFlagsToInitialMentors(_p.InitialFruitScoutMentorCount, FruitScoutFlag);
+
+        private void GrantFlagsToInitialMentors(int n, int flag)
+        {
+            if (n <= 0) return;
+            var pool = new List<ApeCell>(12);
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if (!LifeStageUtil.CanMentorCulture(a.Stage)) continue;
+                pool.Add(a);
+            }
+            if (pool.Count == 0) return;
+            for (var i = pool.Count - 1; i > 0; i--)
+            {
+                var j = _rng.Next(0, i + 1);
+                var t = pool[i];
+                pool[i] = pool[j];
+                pool[j] = t;
+            }
+            var c = 0;
+            for (var i = 0; i < pool.Count && c < n; i++, c++) pool[i].CultureFlags |= flag;
+        }
+
+        private void FillDefaultWildlife()
+        {
+            if (_wildMaterialized == null) return;
+            for (var gi = 0; gi < _wildMaterialized.PreyGroups.Count; gi++)
+            {
+                var g = _wildMaterialized.PreyGroups[gi];
+                for (var n = 0; n < g.Count; n++)
+                {
+                    if (!TrySpawnOnePreyInGroup(g)) break;
+                }
+            }
+            for (var gi = 0; gi < _wildMaterialized.PredatorGroups.Count; gi++)
+            {
+                var g = _wildMaterialized.PredatorGroups[gi];
+                for (var n = 0; n < g.Count; n++)
+                {
+                    if (!TrySpawnOnePredInGroup(g)) break;
+                }
+            }
+        }
+
+        private bool TrySpawnOnePreyInGroup(PreyGroup g)
+        {
+            for (var t = 0; t < 300; t++)
+            {
+                var x = _rng.Next(0, MapData.Size);
+                var y = _rng.Next(0, MapData.Size);
+                if (!CanPlaceWildlifeAt(x, y, -1)) continue;
+                _prey.Add(new PreyEntity
+                {
+                    Id = _nextPreyId++,
+                    X = x, Y = y, Alive = true, RespawnAtTick = 0,
+                    SpeciesId = g.SpeciesId ?? WildlifeIds.CoreGrassPrey,
+                    MeatHunger = g.MeatHunger, RespawnDelayTicks = g.RespawnDelayTicks
+                });
+                return true;
+            }
+            return false;
+        }
+
+        private bool TrySpawnOnePredInGroup(PredatorGroup g)
+        {
+            for (var t = 0; t < 300; t++)
+            {
+                var x = _rng.Next(0, MapData.Size);
+                var y = _rng.Next(0, MapData.Size);
+                if (!CanPlaceWildlifeAt(x, y, -1)) continue;
+                _predators.Add(new PredatorEntity
+                {
+                    Id = _nextPredatorId++, X = x, Y = y,
+                    SpeciesId = g.SpeciesId ?? WildlifeIds.CoreStalker,
+                    SpookMaxStress = g.SpookMaxStress, SpookRadius = g.SpookRadius
+                });
+                return true;
+            }
+            return false;
+        }
+
+        private bool CanPlaceWildlifeAt(int x, int y, int ignoreLivePreyId)
+        {
+            if (!MapData.InBounds(x, y) || !_map.IsWalkable(x, y)) return false;
+            if (_map.Tiles[x, y] != TileType.Grass) return false;
+            if (ApeAt(x, y)) return false;
+            if (PredatorAt(x, y, -1)) return false;
+            for (var i = 0; i < _prey.Count; i++)
+            {
+                var p = _prey[i];
+                if (!p.Alive) continue;
+                if (ignoreLivePreyId >= 0 && p.Id == ignoreLivePreyId) continue;
+                if (p.X == x && p.Y == y) return false;
+            }
+            return true;
+        }
+
+        private bool PredatorAt(int x, int y, int exceptId)
+        {
+            for (var i = 0; i < _predators.Count; i++)
+            {
+                var d = _predators[i];
+                if (exceptId >= 0 && d.Id == exceptId) continue;
+                if (d.X == x && d.Y == y) return true;
+            }
+            return false;
+        }
+
+        private void PhasePreyRevive()
+        {
+            for (var i = 0; i < _prey.Count; i++)
+            {
+                var p = _prey[i];
+                if (p.Alive) continue;
+                if (_tickCount < p.RespawnAtTick) continue;
+                for (var t = 0; t < 200; t++)
+                {
+                    var x = _rng.Next(0, MapData.Size);
+                    var y = _rng.Next(0, MapData.Size);
+                    if (!CanPlaceWildlifeAt(x, y, -1)) continue;
+                    p.X = x; p.Y = y; p.Alive = true; p.RespawnAtTick = 0;
+                    break;
+                }
+            }
+        }
+
+        private void PhasePreyWander()
+        {
+            if (_prey == null || _prey.Count == 0) return;
+            for (var i = 0; i < _prey.Count; i++)
+            {
+                var p = _prey[i];
+                if (!p.Alive) continue;
+                if (_rng.NextDouble() < 0.4) continue;
+                var k = _rng.Next(0, 4);
+                var (dx, dy) = k == 0 ? (1, 0) : k == 1 ? (-1, 0) : k == 2 ? (0, 1) : (0, -1);
+                TryMovePreyTo(p, p.X + dx, p.Y + dy);
+            }
+        }
+
+        private bool TryMovePreyTo(PreyEntity p, int x, int y)
+        {
+            if (!MapData.InBounds(x, y) || !_map.IsWalkable(x, y)) return false;
+            if (ApeAt(x, y)) return false;
+            if (PredatorAt(x, y, -1)) return false;
+            for (var j = 0; j < _prey.Count; j++)
+            {
+                var o = _prey[j];
+                if (o == p || !o.Alive) continue;
+                if (o.X == x && o.Y == y) return false;
+            }
+            p.X = x; p.Y = y;
+            return true;
+        }
+
+        private void PhasePredator()
+        {
+            if (_predators == null || _predators.Count == 0) return;
+            for (var i = 0; i < _predators.Count; i++)
+            {
+                var p = _predators[i];
+                ApeCell victim = null;
+                var best = 9999;
+                for (var j = 0; j < _apes.Count; j++)
+                {
+                    var a = _apes[j];
+                    if (!a.Alive) continue;
+                    var d = System.Math.Abs(p.X - a.X) + System.Math.Abs(p.Y - a.Y);
+                    if (d < best) { best = d; victim = a; }
+                }
+                if (victim == null) continue;
+                if (p.X == victim.X && p.Y == victim.Y)
+                {
+                    KillApeByPredation(victim);
+                    continue;
+                }
+                StepPredatorToward(p, victim.X, victim.Y);
+                for (var j = 0; j < _apes.Count; j++)
+                {
+                    var a = _apes[j];
+                    if (!a.Alive) continue;
+                    if (a.X == p.X && a.Y == p.Y) { KillApeByPredation(a); break; }
+                }
+            }
+        }
+
+        private void StepPredatorToward(PredatorEntity p, int tx, int ty)
+        {
+            var dx = tx - p.X;
+            var dy = ty - p.Y;
+            if (dx == 0 && dy == 0) return;
+            if (System.Math.Abs(dx) >= System.Math.Abs(dy))
+            {
+                var nx = p.X + (dx > 0 ? 1 : -1);
+                if (TryMovePredatorTo(p, nx, p.Y)) return;
+                var ny = p.Y + (dy > 0 ? 1 : -1);
+                TryMovePredatorTo(p, p.X, ny);
+            }
+            else
+            {
+                var ny = p.Y + (dy > 0 ? 1 : -1);
+                if (TryMovePredatorTo(p, p.X, ny)) return;
+                var nx = p.X + (dx > 0 ? 1 : -1);
+                TryMovePredatorTo(p, nx, p.Y);
+            }
+        }
+
+        private bool TryMovePredatorTo(PredatorEntity p, int x, int y)
+        {
+            if (!MapData.InBounds(x, y) || !_map.IsWalkable(x, y)) return false;
+            if (PredatorAt(x, y, p.Id)) return false;
+            p.X = x; p.Y = y;
+            return true;
+        }
+
+        private void KillApeByPredation(ApeCell ape)
+        {
+            if (!ape.Alive) return;
+            var id = ape.Id;
+            var hadC = ape.CultureFlags;
+            ape.Alive = false;
+            ape.FoodMemX = -1;
+            ape.FoodMemY = -1;
+            ape.FoodMemStrength = 0f;
+            ape.PeerId = -1;
+            ape.PeerMemStrength = 0f;
+            ApplyKinLossStress(id);
+            MaybeSkillExtinctIfLast(hadC);
+            LogEvent(WorldEventKind.Predation, $"{Label(ape)} 被掠食者扑杀 (tick {_tickCount})");
+        }
+
+        private int CountAliveWithCultureBit(int bit)
+        {
+            var n = 0;
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if ((a.CultureFlags & bit) == 0) continue;
+                n++;
+            }
+            return n;
+        }
+
+        private void MaybeSkillExtinctIfLast(int hadCultureOfDead)
+        {
+            for (var bi = 0; bi < TrackedCultureBits.Length; bi++)
+            {
+                var bit = TrackedCultureBits[bi];
+                if ((hadCultureOfDead & bit) == 0) continue;
+                if (CountAliveWithCultureBit(bit) > 0) continue;
+                var label = bit == NutCrackFlag
+                    ? "「坚果敲裂」"
+                    : bit == FruitScoutFlag
+                        ? "「果记精描」"
+                        : $"技艺(位{bit})";
+                LogEvent(WorldEventKind.SkillExtinct, $"{label}无人再通—文化断裂 (tick {_tickCount})。");
+            }
+        }
+
+        private bool TryConsumePrey(ApeCell ape)
+        {
+            for (var i = 0; i < _prey.Count; i++)
+            {
+                var pr = _prey[i];
+                if (!pr.Alive) continue;
+                if (pr.X != ape.X || pr.Y != ape.Y) continue;
+                var add = pr.MeatHunger > 0.0001f ? pr.MeatHunger : _p.PreyMeatHunger;
+                if (add <= 0.0001f) continue;
+                pr.Alive = false;
+                pr.RespawnAtTick = _tickCount + System.Math.Max(0, pr.RespawnDelayTicks);
+                ape.Hunger = System.Math.Min(1f, ape.Hunger + add);
+                LogEvent(WorldEventKind.PreyHunted, $"{Label(ape)} 取食了走兽 (tick {_tickCount})");
+                return true;
+            }
+            return false;
+        }
+
+        private void PhaseCulture()
+        {
+            if (_p.ObserveLearnNutCrack > 0f) MaybeObserveLearnNutCrack();
+            if (_p.NutCrackInventPerTick > 0f) MaybeInventNutCrack();
+            if (_p.ObserveLearnFruitScout > 0f) MaybeObserveFruitScout();
+            if (_p.FruitScoutInventPerTick > 0f) MaybeInventFruitScout();
+        }
+
+        private void MaybeObserveLearnNutCrack()
+        {
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if ((a.CultureFlags & NutCrackFlag) != 0) continue;
+                if (!LifeStageUtil.CanLearnCulture(a.Stage)) continue;
+                for (var j = 0; j < _apes.Count; j++)
+                {
+                    var t = _apes[j];
+                    if (!t.Alive) continue;
+                    if ((t.CultureFlags & NutCrackFlag) == 0) continue;
+                    if (!LifeStageUtil.CanMentorCulture(t.Stage)) continue;
+                    if (t.Side != a.Side) continue;
+                    var dist = System.Math.Abs(a.X - t.X) + System.Math.Abs(a.Y - t.Y);
+                    if (dist > 2) continue;
+                    var cq = (a.Curiosity + 1f) * 0.5f;
+                    if (cq < 0f) cq = 0f;
+                    if (cq > 1f) cq = 1f;
+                    var pr = _p.ObserveLearnNutCrack * (0.25f + 0.75f * cq);
+                    if (_rng.NextDouble() >= pr) continue;
+                    a.CultureFlags |= NutCrackFlag;
+                    LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 观摩学会了坚果敲裂 (tick {_tickCount})");
+                    break;
+                }
+            }
+        }
+
+        private void MaybeInventNutCrack()
+        {
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if ((a.CultureFlags & NutCrackFlag) != 0) continue;
+                if (a.Stage != LifeStage.Adult) continue;
+                if (!IsNearFoliageFruitForInvent(a)) continue;
+                if (_rng.NextDouble() >= _p.NutCrackInventPerTick) continue;
+                a.CultureFlags |= NutCrackFlag;
+                LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 独自琢磨出了坚果敲裂 (tick {_tickCount})");
+            }
+        }
+
+        private bool IsNearFoliageFruitForInvent(ApeCell a)
+        {
+            if (_map.Tiles[a.X, a.Y] == TileType.FruitTree) return _map.Food[a.X, a.Y] > 0.01f;
+            var dirs = new[] { (0, 1), (0, -1), (1, 0), (-1, 0) };
+            foreach (var d in dirs)
+            {
+                var x = a.X + d.Item1;
+                var y = a.Y + d.Item2;
+                if (!MapData.InBounds(x, y)) continue;
+                if (_map.Tiles[x, y] == TileType.FruitTree && _map.Food[x, y] > 0.01f) return true;
+            }
+            return false;
+        }
+
+        private void MaybeObserveFruitScout()
+        {
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if ((a.CultureFlags & FruitScoutFlag) != 0) continue;
+                if (!LifeStageUtil.CanLearnCulture(a.Stage)) continue;
+                for (var j = 0; j < _apes.Count; j++)
+                {
+                    var t = _apes[j];
+                    if (!t.Alive) continue;
+                    if ((t.CultureFlags & FruitScoutFlag) == 0) continue;
+                    if (!LifeStageUtil.CanMentorCulture(t.Stage)) continue;
+                    if (t.Side != a.Side) continue;
+                    var dist = System.Math.Abs(a.X - t.X) + System.Math.Abs(a.Y - t.Y);
+                    if (dist > 2) continue;
+                    var cq = (a.Curiosity + 1f) * 0.5f;
+                    if (cq < 0f) cq = 0f;
+                    if (cq > 1f) cq = 1f;
+                    var pr = _p.ObserveLearnFruitScout * (0.25f + 0.75f * cq);
+                    if (_rng.NextDouble() >= pr) continue;
+                    a.CultureFlags |= FruitScoutFlag;
+                    LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 观摩学会了果记精描 (tick {_tickCount})");
+                    break;
+                }
+            }
+        }
+
+        private void MaybeInventFruitScout()
+        {
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                if ((a.CultureFlags & FruitScoutFlag) != 0) continue;
+                if (a.Stage != LifeStage.Adult) continue;
+                if (!IsNearFoliageFruitForInvent(a)) continue;
+                if (_rng.NextDouble() >= _p.FruitScoutInventPerTick) continue;
+                a.CultureFlags |= FruitScoutFlag;
+                LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 独自琢磨出了果记精描 (tick {_tickCount})");
+            }
+        }
+
+        private int MinManhattanToAnyPredator(int x, int y, out int bestIndex)
+        {
+            bestIndex = -1;
+            if (_predators == null || _predators.Count == 0) return 99;
+            var best = 99;
+            for (var i = 0; i < _predators.Count; i++)
+            {
+                var p = _predators[i];
+                var d = System.Math.Abs(p.X - x) + System.Math.Abs(p.Y - y);
+                if (d < best) { best = d; bestIndex = i; }
+            }
+            return best;
+        }
+
         private sealed class ApeCell
         {
             public int Id;
@@ -864,6 +1460,7 @@ namespace LandKing.Simulation
             public float FoodMemStrength;
             public int PeerId = -1;
             public float PeerMemStrength;
+            public int CultureFlags;
 
             public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f)
             {
@@ -899,7 +1496,8 @@ namespace LandKing.Simulation
                 FoodMemY = FoodMemY,
                 FoodMemStrength = FoodMemStrength,
                 PeerId = PeerId,
-                PeerMemStrength = PeerMemStrength
+                PeerMemStrength = PeerMemStrength,
+                CultureFlags = CultureFlags
             };
 
             public static ApeCell FromSave(ApeSaveRecord r)
@@ -929,7 +1527,8 @@ namespace LandKing.Simulation
                     FoodMemY = r.FoodMemY,
                     FoodMemStrength = r.FoodMemStrength,
                     PeerId = r.PeerId,
-                    PeerMemStrength = r.PeerMemStrength
+                    PeerMemStrength = r.PeerMemStrength,
+                    CultureFlags = r.CultureFlags
                 };
             }
 
@@ -956,7 +1555,8 @@ namespace LandKing.Simulation
                 Stage = Stage,
                 ParentId0 = ParentA,
                 ParentId1 = ParentB,
-                BodyScale = BodyScale
+                BodyScale = BodyScale,
+                CultureFlags = CultureFlags
             };
         }
     }

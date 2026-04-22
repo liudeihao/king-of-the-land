@@ -12,6 +12,7 @@ namespace LandKing.Prototype
         private MapGenerator _map;
         private readonly List<Ape> _apes = new List<Ape>(10);
         private Transform _apeRoot;
+        private Transform _wildRoot;
         public EventLog EventLog { get; private set; }
 
         public WorldSimulation Sim => _sim;
@@ -20,14 +21,14 @@ namespace LandKing.Prototype
 
         public void SetEventLog(EventLog log) => EventLog = log;
 
-        public void Build(int randomSeed = 42, SimParams simParams = null)
+        public void Build(int randomSeed = 42, SimParams simParams = null, WildlifeRuntimeResult wildlife = null)
         {
             _apeRoot = new GameObject("Apes").transform;
             _apeRoot.SetParent(transform, false);
             var go = new GameObject("Map");
             go.transform.SetParent(transform, false);
             _map = go.AddComponent<MapGenerator>();
-            _sim = new WorldSimulation(randomSeed, simParams);
+            _sim = new WorldSimulation(randomSeed, simParams, wildlife);
             SpawnApeAndMapViews();
         }
 
@@ -40,6 +41,7 @@ namespace LandKing.Prototype
             _apes.Clear();
             if (_map != null) _map.Build(_sim);
             SpawnApeViewObjects();
+            RebuildWildlifeDots();
             if (EventLog != null) EventLog.RebuildFromChronicle(_sim.GetChronicleSnapshot(), "已从存档恢复世界。");
             if (clearSelection) GetComponent<SelectionManager>()?.Set(null);
         }
@@ -63,6 +65,7 @@ namespace LandKing.Prototype
         {
             _map.Build(_sim);
             SpawnApeViewObjects();
+            RebuildWildlifeDots();
         }
 
         public void StepSimulation()
@@ -81,6 +84,7 @@ namespace LandKing.Prototype
                 _apes.Add(ape);
             }
             _map?.RefreshColors();
+            RebuildWildlifeDots();
             SyncAll();
         }
 
@@ -101,6 +105,37 @@ namespace LandKing.Prototype
             {
                 var st = _sim.FindApe(_apes[i].ApeId);
                 if (st.HasValue) _apes[i].SyncFromState(st.Value);
+            }
+        }
+
+        private void RebuildWildlifeDots()
+        {
+            if (_sim == null) return;
+            if (_wildRoot == null)
+            {
+                var w = new GameObject("Wild");
+                w.transform.SetParent(transform, false);
+                _wildRoot = w.transform;
+            }
+            for (var i = _wildRoot.childCount - 1; i >= 0; i--)
+                Object.Destroy(_wildRoot.GetChild(i).gameObject);
+            var prey = _sim.GetAlivePreyForDisplay();
+            for (var i = 0; i < prey.Length; i++)
+            {
+                var o = new GameObject($"Prey_{prey[i].Id}");
+                o.transform.SetParent(_wildRoot, false);
+                var d = o.AddComponent<WildlifeDot>();
+                d.Init(false, prey[i].Id);
+                d.Sync(prey[i]);
+            }
+            var preds = _sim.GetPredatorsForDisplay();
+            for (var i = 0; i < preds.Length; i++)
+            {
+                var o = new GameObject($"Pred_{preds[i].Id}");
+                o.transform.SetParent(_wildRoot, false);
+                var d = o.AddComponent<WildlifeDot>();
+                d.Init(true, preds[i].Id);
+                d.Sync(preds[i]);
             }
         }
     }

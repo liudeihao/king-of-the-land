@@ -66,6 +66,42 @@ namespace LandKing.Simulation
         public float CuriosityWanderLively = 0.5f;
         /// <summary>幼幼/少每 tick 跟在世亲代挪一步的基准概率（再乘好奇）；0=关。</summary>
         public float ParentImitateBaseChance = 0.07f;
+        /// <summary>随亲步阶段乘子：婴。</summary>
+        public float ParentImitateInfantMult = 1f;
+        /// <summary>随亲步阶段乘子：幼。</summary>
+        public float ParentImitateChildMult = 0.9f;
+        /// <summary>随亲步阶段乘子：青（可单独调低，削弱青年「黏亲」）。</summary>
+        public float ParentImitateYouthMult = 0.3f;
+        /// <summary>亲代死亡时，在世且仍记该亲 ID 的子女压力上跳；0=关。</summary>
+        public float KinLossStress = 0.14f;
+        /// <summary>开局赋予「坚果敲裂」技艺的成年/年长个体数（随机抽）；0=全族从零摸索。</summary>
+        public int InitialNutCrackMentorCount = 2;
+        /// <summary>邻格（格距≤2）观摩成年示范者时，每 tick 基础习得概率，再乘好奇；0=只能发明。</summary>
+        public float ObserveLearnNutCrack = 0.012f;
+        /// <summary>成年、尚无技艺、站在果边或果上时，每 tick 自发明概率；0=关。</summary>
+        public float NutCrackInventPerTick = 0.00035f;
+        /// <summary>活猎物（走兽）数量上界，随机铺在草地。</summary>
+        public int PreyCount = 5;
+        /// <summary>掠食者个体数，随机铺在草地，逐 tick 追近猿；0=关。</summary>
+        public int PredatorCount = 1;
+        /// <summary>取食同格活猎物时增加的饱食度。</summary>
+        public float PreyMeatHunger = 0.22f;
+        /// <summary>猎物被吃后，于此 tick 数后在同岸空草地重生；0=本 tick 即重生。</summary>
+        public int PreyRespawnDelayTicks = 45;
+        /// <summary>具坚果敲裂时，在果树上喰果额外增加饱食；0=无加成。</summary>
+        public float NutCrackEatBonus = 0.042f;
+        /// <summary>距最近掠食者格距（曼哈顿）不超过本值时，每 tick 按距离衰减加压力；0=无惊扰。</summary>
+        public int PredatorSpookRadius = 2;
+        /// <summary>与掠食者同格时（格距=0）每 tick 压力上跳，远处按格距比例衰减到 0。</summary>
+        public float PredatorSpookMaxStress = 0.08f;
+        /// <summary>第二技艺「果记精描」：观望习得（位 flag=2）。</summary>
+        public float ObserveLearnFruitScout = 0.01f;
+        /// <summary>成年、果边自悟果记精描。</summary>
+        public float FruitScoutInventPerTick = 0.00028f;
+        /// <summary>果记精描：在果上进食时，果记强度至少抬到 min(1, 1+本值)（叠加强记）。</summary>
+        public float FruitScoutMemBoost = 0.1f;
+        /// <summary>开局随机赋予果记精描的示范者数。</summary>
+        public int InitialFruitScoutMentorCount = 0;
 
         public SimParams Copy()
         {

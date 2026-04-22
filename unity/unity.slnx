@@ -1,4 +1,4 @@
 ﻿<Solution>
-  <Project Path="LandKing.Prototype.csproj" />
   <Project Path="LandKing.Simulation.csproj" />
+  <Project Path="LandKing.Prototype.csproj" />
 </Solution>

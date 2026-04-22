@@ -29,5 +29,7 @@ namespace LandKing.Simulation
         public int ParentId0;
         public int ParentId1;
         public float BodyScale;
+        /// <summary>位标记：1=坚果敲裂，2=果记精描（可再扩展）。</summary>
+        public int CultureFlags;
     }
 }

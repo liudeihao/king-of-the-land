@@ -14,5 +14,11 @@ namespace LandKing.Simulation
 
         /// <summary>仅成年个体可参与文档中的“配对/繁殖”。</summary>
         public static bool CanBreed(LifeStage s) => s == LifeStage.Adult;
+
+        /// <summary>可作为观察学习中的示范者（简化：成年+年长有技艺）。</summary>
+        public static bool CanMentorCulture(LifeStage s) => s == LifeStage.Adult || s == LifeStage.Elder;
+
+        /// <summary>可习得文化技艺（年长者不再作为学习者）。</summary>
+        public static bool CanLearnCulture(LifeStage s) => s != LifeStage.Elder;
     }
 }

@@ -1,0 +1,9 @@
+{
+  "id": "wildlife_table_sample",
+  "name": "Wildlife table (sample L1)",
+  "version": "1.0.0",
+  "kind": "content",
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

@@ -32,6 +32,7 @@ namespace LandKing.Prototype
         public string Version;
         public ModManifest Manifest;
         public bool HasSimParams;
+        public bool HasWildlife;
     }
 
     /// <summary>从 <c>StreamingAssets/Mods/&lt;folder&gt;/</c> 发现包，解析 <c>mod.json</c> 依赖/冲突，<c>sim_params.json</c> 按解析顺序合并（见 <c>docs/实现/微内核与Mod扩展.md</c> §9）。</summary>
@@ -43,6 +44,7 @@ namespace LandKing.Prototype
         {
             public bool Success;
             public SimParams Sim;
+            public WildlifeRuntimeResult Wildlife;
             public IReadOnlyList<string> ModFolderNames;
             public IReadOnlyList<string> ModDisplayNames;
             public IReadOnlyList<string> LoadOrderDisplay;
@@ -60,6 +62,7 @@ namespace LandKing.Prototype
                 {
                     Success = true,
                     Sim = def,
+                    Wildlife = WildlifeTableBuilder.FromParamsOnly(def),
                     ModFolderNames = Array.Empty<string>(),
                     ModDisplayNames = Array.Empty<string>(),
                     LoadOrderDisplay = Array.Empty<string>(),
@@ -77,9 +80,11 @@ namespace LandKing.Prototype
                 if (string.IsNullOrEmpty(folder)) continue;
                 var manPath = Path.Combine(dir, "mod.json");
                 var paramPath = Path.Combine(dir, "sim_params.json");
+                var wildPath = Path.Combine(dir, "wildlife.json");
                 var hasMan = File.Exists(manPath);
                 var hasParams = File.Exists(paramPath);
-                if (!hasMan && !hasParams) continue;
+                var hasWild = File.Exists(wildPath);
+                if (!hasMan && !hasParams && !hasWild) continue;
                 ModManifest m = null;
                 if (hasMan) m = JsonUtility.FromJson<ModManifest>(File.ReadAllText(manPath));
                 var id = m != null && !string.IsNullOrEmpty(m.id) ? m.id : folder;
@@ -92,7 +97,8 @@ namespace LandKing.Prototype
                     Id = id,
                     Version = ver,
                     Manifest = m,
-                    HasSimParams = hasParams
+                    HasSimParams = hasParams,
+                    HasWildlife = hasWild
                 });
             }
 
@@ -108,6 +114,7 @@ namespace LandKing.Prototype
             }
 
             var sim = def;
+            var wildFiles = new List<WildlifeFileV1>(4);
             var folderOrder = new List<string>();
             var display = new List<string>();
             var loadOrder = new List<string>();
@@ -120,6 +127,15 @@ namespace LandKing.Prototype
                     var file = JsonUtility.FromJson<L1ParamPatchFile>(json);
                     SimParamsPatchUtil.Apply(sim, file);
                 }
+                if (p.HasWildlife)
+                {
+                    var wjson = File.ReadAllText(Path.Combine(root, p.Folder, "wildlife.json"));
+                    if (!string.IsNullOrEmpty(wjson))
+                    {
+                        var wf = JsonUtility.FromJson<WildlifeFileV1>(wjson);
+                        if (wf != null) wildFiles.Add(wf);
+                    }
+                }
                 folderOrder.Add(p.Folder);
                 if (p.Manifest != null)
                 {
@@ -131,10 +147,13 @@ namespace LandKing.Prototype
                 loadOrder.Add($"{k}:{p.Id}@{p.Version}");
             }
 
+            var wildlife = WildlifeTableBuilder.Build(sim, wildFiles);
+
             return new Result
             {
                 Success = true,
                 Sim = sim,
+                Wildlife = wildlife,
                 ModFolderNames = folderOrder,
                 ModDisplayNames = display,
                 LoadOrderDisplay = loadOrder,
@@ -143,7 +162,16 @@ namespace LandKing.Prototype
         }
 
         private static Result Failed(SimParams def, IReadOnlyList<string> e) =>
-            new Result { Success = false, Sim = def, ModFolderNames = Array.Empty<string>(), ModDisplayNames = Array.Empty<string>(), LoadOrderDisplay = Array.Empty<string>(), Errors = e };
+            new Result
+            {
+                Success = false,
+                Sim = def,
+                Wildlife = WildlifeTableBuilder.FromParamsOnly(def),
+                ModFolderNames = Array.Empty<string>(),
+                ModDisplayNames = Array.Empty<string>(),
+                LoadOrderDisplay = Array.Empty<string>(),
+                Errors = e
+            };
 
         private static bool HasConflictErrors(List<ModInstance> packages, List<string> err)
         {

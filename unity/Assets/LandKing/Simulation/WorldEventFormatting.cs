@@ -18,6 +18,10 @@ namespace LandKing.Simulation
                 WorldEventKind.NaturalDeath => "寿终",
                 WorldEventKind.FoodDepleted => "果尽",
                 WorldEventKind.EastShore => "东岸",
+                WorldEventKind.SkillLearned => "传艺",
+                WorldEventKind.SkillExtinct => "艺绝",
+                WorldEventKind.PreyHunted => "猎食",
+                WorldEventKind.Predation => "掠食",
                 _ => e.Kind.ToString()
             };
             return $"[t{e.Tick}][{tag}] {e.Message}";

@@ -33,7 +33,7 @@ namespace LandKing.Prototype
             _ = gameObject.AddComponent<SelectionManager>();
             _ = gameObject.AddComponent<SaveLoadHotkeys>();
             w.SetEventLog(e);
-            w.Build(42, mods.Sim);
+            w.Build(42, mods.Sim, mods.Wildlife);
             u.CreateUi(transform);
             u.SetLoadedMods(mods);
             if (mods.Success)

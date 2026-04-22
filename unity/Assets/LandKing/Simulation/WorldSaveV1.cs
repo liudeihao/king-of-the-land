@@ -24,6 +24,10 @@ namespace LandKing.Simulation
         public WorldEventSaveV1[] Chronicle;
         public string[] l1ModFolders;
         public string[] l1ModDisplayNames;
+        public int NextPreyId;
+        public int NextPredatorId;
+        public PreySaveV1[] Prey;
+        public PredatorSaveV1[] Predators;
     }
 
     [Serializable]
@@ -62,5 +66,31 @@ namespace LandKing.Simulation
         public float FoodMemStrength;
         public int PeerId;
         public float PeerMemStrength;
+        /// <summary>文化技艺位，见 <see cref="ApeState.CultureFlags"/>；旧档缺省=0。</summary>
+        public int CultureFlags;
+    }
+
+    [Serializable]
+    public sealed class PreySaveV1
+    {
+        public int Id;
+        public int X;
+        public int Y;
+        public bool Alive;
+        public int RespawnAtTick;
+        public string speciesId;
+        public float meatHunger;
+        public int respawnDelayTicks;
+    }
+
+    [Serializable]
+    public sealed class PredatorSaveV1
+    {
+        public int Id;
+        public int X;
+        public int Y;
+        public string speciesId;
+        public float spookMaxStress;
+        public int spookRadius;
     }
 }

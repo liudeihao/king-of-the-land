@@ -1,0 +1,8 @@
+{
+  "clearBaseline": false,
+  "species": [
+    { "id": "core_grass_prey", "kind": "prey_wander", "count": 4, "meatHunger": 0.2, "respawnDelayTicks": 40 },
+    { "id": "moss_rodent", "kind": "prey_wander", "count": 2, "meatHunger": 0.16, "respawnDelayTicks": 50 },
+    { "id": "core_stalker", "kind": "predator_hunt_ape", "count": 1, "spookMaxStress": 0.09, "spookRadius": 2 }
+  ]
+}

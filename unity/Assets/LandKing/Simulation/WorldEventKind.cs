@@ -11,6 +11,14 @@ namespace LandKing.Simulation
         Starvation = 5,
         NaturalDeath = 6,
         FoodDepleted = 7,
-        EastShore = 8
+        EastShore = 8,
+        /// <summary>从邻格成年/年长者处习得「坚果敲裂」等。</summary>
+        SkillLearned = 9,
+        /// <summary>掌握某技艺的最后个体死亡。</summary>
+        SkillExtinct = 10,
+        /// <summary>走兽肉（猎物）被取食。</summary>
+        PreyHunted = 11,
+        /// <summary>被掠食者扑杀。</summary>
+        Predation = 12
     }
 }
