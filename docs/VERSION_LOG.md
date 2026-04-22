@@ -23,6 +23,7 @@
 - 2026年4月22日（游荡向果/向同族偏步；社交强化`PeerId`与印象；`PhaseEpisodicMemory`）
 - 2026年4月22日（L1 `sim_params`：`SimParamsPatchUtil` 反射写全部**公开数字字段**，与微内核表驱动目标一致）
 - 2026年4月22日（勇气缓僵停；社交目标偏印象；`MatingStressPenalty`×雌性压力）
+- 2026年4月22日（`CuriosityWanderLively`；`ParentImitateBaseChance`+幼/少/弱随亲）
 
 ## 本次重构解决了什么混乱
 

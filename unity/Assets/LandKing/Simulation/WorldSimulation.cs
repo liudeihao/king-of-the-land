@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace LandKing.Simulation
 {
-    /// <summary>Headless world: 里程碑二、三、四、五起（双岸、旱/雨、东岸叙事、简单压力/社交抑制）；编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
+    /// <summary>Headless world: 双岸、旱/雨、东岸；压力/勇气/好奇；地点与同族记忆；婴幼少弱随亲。编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
         private readonly SimParams _p;
@@ -606,6 +606,7 @@ namespace LandKing.Simulation
                 if (TryFindTargetTree(ape, out var tx, out var ty) && (ape.X != tx || ape.Y != ty)) { StepToward(ape, tx, ty); return; }
             }
             WanderingStep(ape);
+            if (ape.Alive) MaybeTendToParent(ape);
         }
 
         private float HungerDecay(ApeCell ape) =>
@@ -693,7 +694,12 @@ namespace LandKing.Simulation
             if (freezeMul < 0.12f) freezeMul = 0.12f;
             if (ape.Stress > 0.45f && _p.StressWanderFreeze > 0f &&
                 _rng.NextDouble() < ape.Stress * _p.StressWanderFreeze * freezeMul) return;
-            if (_rng.Next(0, 10) < 2) return;
+            var cqW = (ape.Curiosity + 1f) * 0.5f;
+            if (cqW < 0f) cqW = 0f;
+            if (cqW > 1f) cqW = 1f;
+            var pStill = 0.2f;
+            if (_p.CuriosityWanderLively > 0f) pStill *= 1f - _p.CuriosityWanderLively * cqW;
+            if (_rng.NextDouble() < pStill) return;
             if (_p.PeerMemoryWanderBias > 0f && ape.PeerMemStrength > 0.08f && ape.PeerId >= 0)
             {
                 var peer = FindApeCellById(ape.PeerId);
@@ -715,6 +721,26 @@ namespace LandKing.Simulation
                 var (dx, dy) = d == 0 ? (1, 0) : d == 1 ? (-1, 0) : d == 2 ? (0, 1) : (0, -1);
                 if (TryMoveTo(ape, ape.X + dx, ape.Y + dy)) return;
             }
+        }
+
+        /// <summary>婴/幼/少：小概率在游荡后再朝在世亲代挪一步（观察学习雏形，不影响觅食主支）。</summary>
+        private void MaybeTendToParent(ApeCell ape)
+        {
+            if (_p.ParentImitateBaseChance <= 0f) return;
+            if (ape.Stage != LifeStage.Infant && ape.Stage != LifeStage.Child && ape.Stage != LifeStage.Youth) return;
+            var pid = ape.ParentA >= 0 ? ape.ParentA : ape.ParentB;
+            if (pid < 0) return;
+            var par = FindApeCellById(pid);
+            if (par == null || !par.Alive) return;
+            var d = System.Math.Abs(ape.X - par.X) + System.Math.Abs(ape.Y - par.Y);
+            if (d < 2 || d > 12) return;
+            var cq = (ape.Curiosity + 1f) * 0.5f;
+            if (cq < 0f) cq = 0f;
+            if (cq > 1f) cq = 1f;
+            var sm = ape.Stage == LifeStage.Infant ? 1f : ape.Stage == LifeStage.Child ? 0.9f : 0.48f;
+            var pr = _p.ParentImitateBaseChance * (0.35f + 0.65f * cq) * sm;
+            if (_rng.NextDouble() >= pr) return;
+            StepToward(ape, par.X, par.Y);
         }
 
         /// <summary>游荡专用：在能缩短格距的邻格中选一格走一步（不用于觅食主逻辑）。</summary>

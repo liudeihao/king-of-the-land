@@ -62,6 +62,10 @@ namespace LandKing.Simulation
         public float PeerSocialPreferBias = 1.2f;
         /// <summary>雌性压力越高，<see cref="MatingRoll"/> 等效越低；0=不影响。</summary>
         public float MatingStressPenalty = 0.2f;
+        /// <summary>好奇 0..1 降低游荡「本 tick 不挪步」基础概率 20%（0=与旧版一致）。</summary>
+        public float CuriosityWanderLively = 0.5f;
+        /// <summary>幼幼/少每 tick 跟在世亲代挪一步的基准概率（再乘好奇）；0=关。</summary>
+        public float ParentImitateBaseChance = 0.07f;
 
         public SimParams Copy()
         {
