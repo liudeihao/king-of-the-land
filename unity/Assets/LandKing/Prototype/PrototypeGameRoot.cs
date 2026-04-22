@@ -18,6 +18,7 @@ namespace LandKing.Prototype
             }
             var mods = L1ModLoader.Load();
             L1ModSession.ApplyFrom(mods);
+            L2ModSession.ApplyFrom(mods);
             if (!mods.Success && mods.Errors != null)
             {
                 foreach (var line in mods.Errors)

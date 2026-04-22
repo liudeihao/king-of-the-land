@@ -19,6 +19,7 @@ namespace LandKing.Prototype
             data.l1ModFolders = L1ModSession.Folders;
             data.l1ModDisplayNames = L1ModSession.DisplayNames;
             data.l1ModIds = L1ModSession.ModIds;
+            data.l2ModIds = L2ModSession.ModIds;
             data.l1ModPersistent = L1ModSession.ToSaveRecords();
             var json = JsonUtility.ToJson(data, true);
             File.WriteAllText(FullPath, json);
@@ -37,6 +38,7 @@ namespace LandKing.Prototype
             {
                 var mods = L1ModLoader.Load();
                 L1ModSession.ApplyFrom(mods);
+                L2ModSession.ApplyFrom(mods);
                 if (mods == null || !mods.Success)
                 {
                     if (mods?.Errors != null && mods.Errors.Count > 0) error = "L1 未加载: " + string.Join(" ", mods.Errors);
@@ -52,6 +54,18 @@ namespace LandKing.Prototype
                             ? "(无)"
                             : string.Join("->", L1ModSession.ModIds);
                         error = "读档拒绝：当前 L1 的 mod id 顺序与存档不一致。存:" + want + " 现:" + have + "。";
+                        return false;
+                    }
+                }
+                if (data.l2ModIds != null && data.l2ModIds.Length > 0)
+                {
+                    if (!SameStringSequence(data.l2ModIds, L2ModSession.ModIds))
+                    {
+                        var want = string.Join("->", data.l2ModIds);
+                        var have = L2ModSession.ModIds == null || L2ModSession.ModIds.Length == 0
+                            ? "(无)"
+                            : string.Join("->", L2ModSession.ModIds);
+                        error = "读档拒绝：当前 L2 脚本包 id 顺序与存档不一致。存:" + want + " 现:" + have + "。";
                         return false;
                     }
                 }

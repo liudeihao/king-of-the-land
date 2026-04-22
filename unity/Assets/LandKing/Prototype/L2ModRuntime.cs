@@ -50,14 +50,30 @@ namespace LandKing.Prototype
             var sink = new L2LogChannel { ModId = modId ?? string.Empty, Sim = _sim };
             try
             {
-                var s = new Script();
+                string code;
+                try
+                {
+                    code = File.ReadAllText(filePath);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("[L2] " + (modId ?? "?") + " 无法读取脚本: " + ex.Message);
+                    return;
+                }
+                if (code == null) return;
+                if (code.Length > L2DataFiles.MaxScriptSourceChars)
+                {
+                    Debug.LogError("[L2] " + (modId ?? "?") + " 脚本过大 (>" + L2DataFiles.MaxScriptSourceChars + " 字符)，已拒绝。");
+                    return;
+                }
+                var s = new Script(CoreModules.Preset_SoftSandbox);
                 s.Globals["log"] = (Action<string>)(msg =>
                 {
                     if (string.IsNullOrEmpty(msg)) return;
                     sink.Sim?.AppendL2Chronicle(sink.ModId, msg);
                 });
                 s.Globals["mod_id"] = modId ?? string.Empty;
-                s.DoFile(filePath);
+                s.DoString(code, null, filePath);
                 var init = s.Globals.Get("l2_init");
                 var fn = s.Globals.Get("after_tick");
                 if (fn.Type == DataType.Function)

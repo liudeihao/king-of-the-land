@@ -26,6 +26,8 @@ namespace LandKing.Simulation
         public string[] l1ModDisplayNames;
         /// <summary>与 <see cref="l1ModFolders"/> 同批拓扑序的 mod id，用于读档时强匹配；旧档可缺省。</summary>
         public string[] l1ModIds;
+        /// <summary>本局曾加载的 L2 脚本包 id 拓扑序；旧档可缺省。</summary>
+        public string[] l2ModIds;
         /// <summary>两岸聚落名（随机池抽选）；旧档可缺省，读档时按种子补。</summary>
         public string SettlementNameLeft;
         public string SettlementNameRight;

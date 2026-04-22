@@ -7,6 +7,8 @@ namespace LandKing.Prototype
     public static class L2DataFiles
     {
         public const string L2EntryLua = "l2_entry.lua";
+        /// <summary>单包 Lua 源码最大字符数（C# 字符串 code units），防止恶意巨型脚本；约 256 KiB 量级。</summary>
+        public const int MaxScriptSourceChars = 262144;
 
         public static bool IsPathUnderModRoot(string modRootFull, string fileFull)
         {
