@@ -1,0 +1,27 @@
+{
+  "clearBaseline": false,
+  "entries": [
+    {
+      "id": "landking.nut_crack",
+      "displayName": "坚果敲裂",
+      "requires": [],
+      "observeLearn": 0.012,
+      "inventPerTick": 0.00035,
+      "initialMentorCount": 2,
+      "inventContext": 1,
+      "eatHungerBonus": 0.042,
+      "foodMemBoost": 0.0
+    },
+    {
+      "id": "landking.fruit_scout",
+      "displayName": "果记精描",
+      "requires": ["landking.nut_crack"],
+      "observeLearn": 0.01,
+      "inventPerTick": 0.00028,
+      "initialMentorCount": 0,
+      "inventContext": 1,
+      "eatHungerBonus": 0.0,
+      "foodMemBoost": 0.1
+    }
+  ]
+}

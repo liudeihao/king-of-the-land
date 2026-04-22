@@ -66,7 +66,9 @@ namespace LandKing.Simulation
         public float FoodMemStrength;
         public int PeerId;
         public float PeerMemStrength;
-        /// <summary>文化技艺位，见 <see cref="ApeState.CultureFlags"/>；旧档缺省=0。</summary>
+        /// <summary>已掌握技艺 id。非空时优先生效；旧档仅 <see cref="CultureFlags"/> 时在模拟内迁移。</summary>
+        public string[] cultureSkillIds;
+        /// <summary>v1 旧位标记：1=坚果敲裂，2=果记精描。无 <see cref="cultureSkillIds"/> 时读档迁移用。</summary>
         public int CultureFlags;
     }
 

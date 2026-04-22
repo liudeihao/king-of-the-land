@@ -137,7 +137,7 @@ namespace LandKing.Prototype
                         $"压力: {a.Stress * 100f:0}% ({StressWord(a.Stress)})\n" +
                         $"地点记忆: {FoodMemoryLine(a.FoodMemoryStrength)}\n" +
                         $"同族印象: {PeerImpressionLine(a.PeerImpressionId, a.PeerImpressionStrength)}\n" +
-                        $"文化: {CultureLine(a.CultureFlags)}\n" +
+                        $"文化: {CultureText.FormatLine(_world.Sim.CultureDefinitions, a.CultureSkillIds)}\n" +
                         $"年龄: {a.Age:0.0} 年   面: {(a.Side == ApeSide.Left ? "西" : "东")}\n" +
                         (a.Alive
                             ? (a.Hunger < 0.7f ? "状态: 觅食" : "状态: 游荡")
@@ -182,17 +182,6 @@ namespace LandKing.Prototype
             if (_mods.ModDisplayNames == null || _mods.ModDisplayNames.Count == 0)
                 return "L1 Mod: 无 (Mods 下无 mod.json 且含 sim_params 的包)";
             return "L1: " + string.Join(" -> ", _mods.ModDisplayNames);
-        }
-
-        private static string CultureLine(int flags)
-        {
-            if (flags == 0) return "无";
-            var a = (flags & 1) != 0 ? "坚果敲裂" : null;
-            var b = (flags & 2) != 0 ? "果记精描" : null;
-            if (a != null && b != null) return a + "、" + b;
-            if (a != null) return a;
-            if (b != null) return b;
-            return "其他(" + flags + ")";
         }
 
         private static string StressWord(float s)

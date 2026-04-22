@@ -25,15 +25,16 @@ namespace LandKing.Prototype
         public string[] conflicts;
     }
 
-    public sealed class ModInstance
-    {
-        public string Folder;
-        public string Id;
-        public string Version;
-        public ModManifest Manifest;
-        public bool HasSimParams;
-        public bool HasWildlife;
-    }
+        public sealed class ModInstance
+        {
+            public string Folder;
+            public string Id;
+            public string Version;
+            public ModManifest Manifest;
+            public bool HasSimParams;
+            public bool HasWildlife;
+            public bool HasCulture;
+        }
 
     /// <summary>从 <c>StreamingAssets/Mods/&lt;folder&gt;/</c> 发现包，解析 <c>mod.json</c> 依赖/冲突，<c>sim_params.json</c> 按解析顺序合并（见 <c>docs/实现/微内核与Mod扩展.md</c> §9）。</summary>
     public static class L1ModLoader
@@ -45,6 +46,7 @@ namespace LandKing.Prototype
             public bool Success;
             public SimParams Sim;
             public WildlifeRuntimeResult Wildlife;
+            public CultureRuntimeResult Culture;
             public IReadOnlyList<string> ModFolderNames;
             public IReadOnlyList<string> ModDisplayNames;
             public IReadOnlyList<string> LoadOrderDisplay;
@@ -63,6 +65,7 @@ namespace LandKing.Prototype
                     Success = true,
                     Sim = def,
                     Wildlife = WildlifeTableBuilder.FromParamsOnly(def),
+                    Culture = CultureTableBuilder.FromParamsOnly(def),
                     ModFolderNames = Array.Empty<string>(),
                     ModDisplayNames = Array.Empty<string>(),
                     LoadOrderDisplay = Array.Empty<string>(),
@@ -81,10 +84,12 @@ namespace LandKing.Prototype
                 var manPath = Path.Combine(dir, "mod.json");
                 var paramPath = Path.Combine(dir, "sim_params.json");
                 var wildPath = Path.Combine(dir, "wildlife.json");
+                var culturePath = Path.Combine(dir, "culture_skills.json");
                 var hasMan = File.Exists(manPath);
                 var hasParams = File.Exists(paramPath);
                 var hasWild = File.Exists(wildPath);
-                if (!hasMan && !hasParams && !hasWild) continue;
+                var hasCulture = File.Exists(culturePath);
+                if (!hasMan && !hasParams && !hasWild && !hasCulture) continue;
                 ModManifest m = null;
                 if (hasMan) m = JsonUtility.FromJson<ModManifest>(File.ReadAllText(manPath));
                 var id = m != null && !string.IsNullOrEmpty(m.id) ? m.id : folder;
@@ -98,7 +103,8 @@ namespace LandKing.Prototype
                     Version = ver,
                     Manifest = m,
                     HasSimParams = hasParams,
-                    HasWildlife = hasWild
+                    HasWildlife = hasWild,
+                    HasCulture = hasCulture
                 });
             }
 
@@ -115,6 +121,7 @@ namespace LandKing.Prototype
 
             var sim = def;
             var wildFiles = new List<WildlifeFileV1>(4);
+            var cultureFiles = new List<CultureFileV1>(4);
             var folderOrder = new List<string>();
             var display = new List<string>();
             var loadOrder = new List<string>();
@@ -136,6 +143,15 @@ namespace LandKing.Prototype
                         if (wf != null) wildFiles.Add(wf);
                     }
                 }
+                if (p.HasCulture)
+                {
+                    var cj = File.ReadAllText(Path.Combine(root, p.Folder, "culture_skills.json"));
+                    if (!string.IsNullOrEmpty(cj))
+                    {
+                        var cf = JsonUtility.FromJson<CultureFileV1>(cj);
+                        if (cf != null) cultureFiles.Add(cf);
+                    }
+                }
                 folderOrder.Add(p.Folder);
                 if (p.Manifest != null)
                 {
@@ -148,12 +164,19 @@ namespace LandKing.Prototype
             }
 
             var wildlife = WildlifeTableBuilder.Build(sim, wildFiles);
+            if (!CultureTableBuilder.TryBuild(sim, cultureFiles, out var culture, out var cultErr))
+            {
+                if (!string.IsNullOrEmpty(cultErr)) err.Add(cultErr);
+                else err.Add("文化技艺表合并失败。");
+                return Failed(def, err);
+            }
 
             return new Result
             {
                 Success = true,
                 Sim = sim,
                 Wildlife = wildlife,
+                Culture = culture,
                 ModFolderNames = folderOrder,
                 ModDisplayNames = display,
                 LoadOrderDisplay = loadOrder,
@@ -167,6 +190,7 @@ namespace LandKing.Prototype
                 Success = false,
                 Sim = def,
                 Wildlife = WildlifeTableBuilder.FromParamsOnly(def),
+                Culture = CultureTableBuilder.FromParamsOnly(def),
                 ModFolderNames = Array.Empty<string>(),
                 ModDisplayNames = Array.Empty<string>(),
                 LoadOrderDisplay = Array.Empty<string>(),

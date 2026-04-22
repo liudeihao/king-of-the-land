@@ -29,7 +29,7 @@ namespace LandKing.Simulation
         public int ParentId0;
         public int ParentId1;
         public float BodyScale;
-        /// <summary>位标记：1=坚果敲裂，2=果记精描（可再扩展）。</summary>
-        public int CultureFlags;
+        /// <summary>已掌握的文化技艺 id 列表（见 L1 <c>culture_skills.json</c> 合并表）。</summary>
+        public string[] CultureSkillIds;
     }
 }

@@ -21,14 +21,14 @@ namespace LandKing.Prototype
 
         public void SetEventLog(EventLog log) => EventLog = log;
 
-        public void Build(int randomSeed = 42, SimParams simParams = null, WildlifeRuntimeResult wildlife = null)
+        public void Build(int randomSeed = 42, SimParams simParams = null, WildlifeRuntimeResult wildlife = null, CultureRuntimeResult culture = null)
         {
             _apeRoot = new GameObject("Apes").transform;
             _apeRoot.SetParent(transform, false);
             var go = new GameObject("Map");
             go.transform.SetParent(transform, false);
             _map = go.AddComponent<MapGenerator>();
-            _sim = new WorldSimulation(randomSeed, simParams, wildlife);
+            _sim = new WorldSimulation(randomSeed, simParams, wildlife, culture);
             SpawnApeAndMapViews();
         }
 

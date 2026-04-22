@@ -3,10 +3,11 @@ using System.Collections.Generic;
 
 namespace LandKing.Simulation
 {
-    /// <summary>Headless world: 双岸、旱/雨、东岸；压力/勇气/好奇；地点与同族记忆；婴幼少弱随亲；坚果敲裂观察学习+文化断裂；地上猎物/掠食者。编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
+    /// <summary>Headless world: 双岸、旱/雨、东岸；压力/勇气/好奇；地点与同族记忆；婴幼少弱随亲；可配置文化技艺（依赖图）+文化断裂；地上猎物/掠食者。编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
         private readonly SimParams _p;
+        private readonly CultureRuntimeResult _culture;
         private SimRng _rng;
         private readonly int _initialSeed;
         private readonly MapData _map;
@@ -27,16 +28,14 @@ namespace LandKing.Simulation
         private readonly List<PredatorEntity> _predators;
         private int _nextPreyId;
         private int _nextPredatorId;
-        private const int NutCrackFlag = 1;
-        private const int FruitScoutFlag = 2;
-        private static readonly int[] TrackedCultureBits = { NutCrackFlag, FruitScoutFlag };
         private readonly WildlifeRuntimeResult _wildMaterialized;
 
-        public WorldSimulation(int randomSeed = 42, SimParams parameters = null, WildlifeRuntimeResult wildlife = null)
+        public WorldSimulation(int randomSeed = 42, SimParams parameters = null, WildlifeRuntimeResult wildlife = null, CultureRuntimeResult culture = null)
         {
             _initialSeed = randomSeed;
             _p = parameters != null ? parameters.Copy() : SimParams.Default.Copy();
             _wildMaterialized = wildlife ?? WildlifeTableBuilder.FromParamsOnly(_p);
+            _culture = culture ?? CultureTableBuilder.FromParamsOnly(_p);
             _chronicle = new List<WorldEventRecord>(ChronicleCap());
             _rng = new SimRng(randomSeed);
             _map = CreateMapAndFood(_rng, _p, out var leftCells, out var rightCells);
@@ -47,16 +46,16 @@ namespace LandKing.Simulation
             _nextPredatorId = 0;
             _nextId = 0;
             _nextId = PlaceInitialApes(_rng, _apes, leftCells, rightCells, _nextId);
-            GrantInitialNutCrackMentors();
-            GrantInitialFruitScoutMentors();
+            GrantAllInitialMentors();
             FillDefaultWildlife();
         }
 
         private WorldSimulation(SimParams p, MapData map, List<ApeCell> apes, int tickCount, int nextId, int initialSeed, SimRng rng,
             float waterLeft, float waterRight, bool droughtActive, bool rainUsed, bool droughtLogged,
-            List<PreyEntity> prey, List<PredatorEntity> predators, int nextPreyId, int nextPredId, bool fillDefaultWildIfEmpty)
+            List<PreyEntity> prey, List<PredatorEntity> predators, int nextPreyId, int nextPredId, bool fillDefaultWildIfEmpty, CultureRuntimeResult culture)
         {
             _p = p;
+            _culture = culture ?? CultureTableBuilder.FromParamsOnly(p);
             _map = map;
             _apes = apes;
             _tickCount = tickCount;
@@ -76,13 +75,14 @@ namespace LandKing.Simulation
             if (fillDefaultWildIfEmpty) FillDefaultWildlife();
         }
 
-        public static WorldSimulation FromSave(WorldSaveV1 data)
+        public static WorldSimulation FromSave(WorldSaveV1 data, CultureRuntimeResult culture = null)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
             if (data.Schema != 1) throw new InvalidOperationException($"WorldSave  schema {data.Schema} 不支持，需要 1。");
             if (data.MapTiles == null || data.MapFood == null) throw new InvalidOperationException("存档缺少地图数据。");
             if (data.Apes == null) throw new InvalidOperationException("存档缺少个体数据。");
             var p = data.Params != null ? data.Params.Copy() : SimParams.Default.Copy();
+            var cult = culture ?? CultureTableBuilder.FromParamsOnly(p);
             var map = RebuildMap(data.MapTiles, data.MapFood);
             var apes = RebuildApes(data.Apes);
             var rng = new SimRng(data.RngState);
@@ -94,7 +94,7 @@ namespace LandKing.Simulation
             var sim = new WorldSimulation(
                 p, map, apes, data.TickCount, data.NextId, data.RandomSeed, rng,
                 data.WaterLeft, data.WaterRight, data.DroughtActive, data.RainUsed, data.DroughtLogged,
-                prey, preds, npid, npd, fillEmpty);
+                prey, preds, npid, npd, fillEmpty, cult);
             sim.LoadChronicleFromSave(data);
             sim.HydrateNarrationFlags();
             return sim;
@@ -254,6 +254,8 @@ namespace LandKing.Simulation
         }
 
         public SimParams Parameters => _p;
+        /// <summary>本局合并后的文化技艺（含 Mod）；UI 与事件文案可依赖显示名。</summary>
+        public CultureRuntimeResult CultureDefinitions => _culture;
         public int TickCount => _tickCount;
         public MapData Map => _map;
         public int ApeCount => _apes.Count;
@@ -713,7 +715,7 @@ namespace LandKing.Simulation
         private void NaturalDeath(ApeCell ape)
         {
             var id = ape.Id;
-            var hadC = ape.CultureFlags;
+            var hadC = ape.SnapshotCultures();
             ape.Alive = false;
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
@@ -751,17 +753,14 @@ namespace LandKing.Simulation
             if (t == TileType.FruitTree && _map.Food[ape.X, ape.Y] >= _p.MinFruitToEat)
             {
                 var eat = _p.EatHunger;
-                if ((ape.CultureFlags & NutCrackFlag) != 0 && _p.NutCrackEatBonus > 0f) eat += _p.NutCrackEatBonus;
+                AddEatBonusesFromCulture(ape, ref eat);
                 ape.Hunger = System.Math.Min(1f, ape.Hunger + eat);
                 _map.Food[ape.X, ape.Y] -= _p.MinFruitToEat;
                 if (_p.FoodMemoryDistanceBias > 0f)
                 {
                     ape.FoodMemX = ape.X;
                     ape.FoodMemY = ape.Y;
-                    var mem = 1f;
-                    if ((ape.CultureFlags & FruitScoutFlag) != 0 && _p.FruitScoutMemBoost > 0f)
-                        mem = System.Math.Min(1f, 1f + _p.FruitScoutMemBoost);
-                    ape.FoodMemStrength = mem;
+                    ape.FoodMemStrength = ComputeFoodMemStrength(ape);
                 }
                 if (_map.Food[ape.X, ape.Y] < 0f) _map.Food[ape.X, ape.Y] = 0f;
                 if (_map.Food[ape.X, ape.Y] <= 0.01f) LogEvent(WorldEventKind.FoodDepleted, $"区域({ape.X},{ape.Y})的果树食物耗尽");
@@ -786,7 +785,7 @@ namespace LandKing.Simulation
         private void Starve(ApeCell ape)
         {
             var id = ape.Id;
-            var hadC = ape.CultureFlags;
+            var hadC = ape.SnapshotCultures();
             ape.Alive = false;
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
@@ -1029,15 +1028,17 @@ namespace LandKing.Simulation
             return nextId;
         }
 
-        private void GrantInitialNutCrackMentors() =>
-            GrantFlagsToInitialMentors(_p.InitialNutCrackMentorCount, NutCrackFlag);
-
-        private void GrantInitialFruitScoutMentors() =>
-            GrantFlagsToInitialMentors(_p.InitialFruitScoutMentorCount, FruitScoutFlag);
-
-        private void GrantFlagsToInitialMentors(int n, int flag)
+        private void GrantAllInitialMentors()
         {
-            if (n <= 0) return;
+            var list = _culture.SkillsInDependencyOrder;
+            if (list == null) return;
+            for (var si = 0; si < list.Count; si++) GrantInitialMentorsFor(list[si]);
+        }
+
+        private void GrantInitialMentorsFor(CultureSkillDef def)
+        {
+            if (def == null || def.InitialMentorCount <= 0) return;
+            var n = def.InitialMentorCount;
             var pool = new List<ApeCell>(12);
             for (var i = 0; i < _apes.Count; i++)
             {
@@ -1055,7 +1056,50 @@ namespace LandKing.Simulation
                 pool[j] = t;
             }
             var c = 0;
-            for (var i = 0; i < pool.Count && c < n; i++, c++) pool[i].CultureFlags |= flag;
+            for (var i = 0; i < pool.Count && c < n; i++, c++) EnsurePrereqChainAndGrant(pool[i], def.Id);
+        }
+
+        private void EnsurePrereqChainAndGrant(ApeCell a, string skillId)
+        {
+            if (a == null || string.IsNullOrEmpty(skillId)) return;
+            if (a.HasCulture(skillId)) return;
+            if (!_culture.ById.TryGetValue(skillId, out var def)) return;
+            if (def.Requires != null)
+            {
+                for (var i = 0; i < def.Requires.Length; i++)
+                {
+                    var r = def.Requires[i];
+                    if (string.IsNullOrEmpty(r)) continue;
+                    EnsurePrereqChainAndGrant(a, r);
+                }
+            }
+            a.AddCulture(skillId);
+        }
+
+        private void AddEatBonusesFromCulture(ApeCell ape, ref float eat)
+        {
+            var list = _culture.SkillsInDependencyOrder;
+            if (list == null) return;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var d = list[i];
+                if (d == null || d.EatHungerBonus <= 0f) continue;
+                if (ape.HasCulture(d.Id)) eat += d.EatHungerBonus;
+            }
+        }
+
+        private float ComputeFoodMemStrength(ApeCell ape)
+        {
+            var mem = 1f;
+            var list = _culture.SkillsInDependencyOrder;
+            if (list == null) return mem;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var d = list[i];
+                if (d == null || d.FoodMemBoost <= 0f) continue;
+                if (ape.HasCulture(d.Id)) mem = System.Math.Max(mem, System.Math.Min(1f, 1f + d.FoodMemBoost));
+            }
+            return mem;
         }
 
         private void FillDefaultWildlife()
@@ -1254,7 +1298,7 @@ namespace LandKing.Simulation
         {
             if (!ape.Alive) return;
             var id = ape.Id;
-            var hadC = ape.CultureFlags;
+            var hadC = ape.SnapshotCultures();
             ape.Alive = false;
             ape.FoodMemX = -1;
             ape.FoodMemY = -1;
@@ -1266,31 +1310,29 @@ namespace LandKing.Simulation
             LogEvent(WorldEventKind.Predation, $"{Label(ape)} 被掠食者扑杀 (tick {_tickCount})");
         }
 
-        private int CountAliveWithCultureBit(int bit)
+        private int CountAliveWithSkill(string skillId)
         {
+            if (string.IsNullOrEmpty(skillId)) return 0;
             var n = 0;
             for (var i = 0; i < _apes.Count; i++)
             {
                 var a = _apes[i];
                 if (!a.Alive) continue;
-                if ((a.CultureFlags & bit) == 0) continue;
-                n++;
+                if (a.HasCulture(skillId)) n++;
             }
             return n;
         }
 
-        private void MaybeSkillExtinctIfLast(int hadCultureOfDead)
+        private void MaybeSkillExtinctIfLast(IReadOnlyList<string> hadSkills)
         {
-            for (var bi = 0; bi < TrackedCultureBits.Length; bi++)
+            if (hadSkills == null || hadSkills.Count == 0) return;
+            for (var hi = 0; hi < hadSkills.Count; hi++)
             {
-                var bit = TrackedCultureBits[bi];
-                if ((hadCultureOfDead & bit) == 0) continue;
-                if (CountAliveWithCultureBit(bit) > 0) continue;
-                var label = bit == NutCrackFlag
-                    ? "「坚果敲裂」"
-                    : bit == FruitScoutFlag
-                        ? "「果记精描」"
-                        : $"技艺(位{bit})";
+                var sid = hadSkills[hi];
+                if (string.IsNullOrEmpty(sid)) continue;
+                if (CountAliveWithSkill(sid) > 0) continue;
+                if (!_culture.ById.TryGetValue(sid, out var def) || def == null) continue;
+                var label = "「" + (string.IsNullOrEmpty(def.DisplayName) ? def.Id : def.DisplayName) + "」";
                 LogEvent(WorldEventKind.SkillExtinct, $"{label}无人再通—文化断裂 (tick {_tickCount})。");
             }
         }
@@ -1315,25 +1357,44 @@ namespace LandKing.Simulation
 
         private void PhaseCulture()
         {
-            if (_p.ObserveLearnNutCrack > 0f) MaybeObserveLearnNutCrack();
-            if (_p.NutCrackInventPerTick > 0f) MaybeInventNutCrack();
-            if (_p.ObserveLearnFruitScout > 0f) MaybeObserveFruitScout();
-            if (_p.FruitScoutInventPerTick > 0f) MaybeInventFruitScout();
+            var list = _culture.SkillsInDependencyOrder;
+            if (list == null) return;
+            for (var si = 0; si < list.Count; si++)
+            {
+                var d = list[si];
+                if (d == null) continue;
+                if (d.ObserveLearn > 0f) MaybeObserveLearn(d);
+                if (d.InventPerTick > 0) MaybeInvent(d);
+            }
         }
 
-        private void MaybeObserveLearnNutCrack()
+        private static bool MeetsPrereqs(ApeCell a, CultureSkillDef def)
+        {
+            if (def == null) return false;
+            if (def.Requires == null) return true;
+            for (var i = 0; i < def.Requires.Length; i++)
+            {
+                var r = def.Requires[i];
+                if (string.IsNullOrEmpty(r)) continue;
+                if (!a.HasCulture(r)) return false;
+            }
+            return true;
+        }
+
+        private void MaybeObserveLearn(CultureSkillDef def)
         {
             for (var i = 0; i < _apes.Count; i++)
             {
                 var a = _apes[i];
                 if (!a.Alive) continue;
-                if ((a.CultureFlags & NutCrackFlag) != 0) continue;
+                if (a.HasCulture(def.Id)) continue;
                 if (!LifeStageUtil.CanLearnCulture(a.Stage)) continue;
+                if (!MeetsPrereqs(a, def)) continue;
                 for (var j = 0; j < _apes.Count; j++)
                 {
                     var t = _apes[j];
                     if (!t.Alive) continue;
-                    if ((t.CultureFlags & NutCrackFlag) == 0) continue;
+                    if (!t.HasCulture(def.Id)) continue;
                     if (!LifeStageUtil.CanMentorCulture(t.Stage)) continue;
                     if (t.Side != a.Side) continue;
                     var dist = System.Math.Abs(a.X - t.X) + System.Math.Abs(a.Y - t.Y);
@@ -1341,27 +1402,43 @@ namespace LandKing.Simulation
                     var cq = (a.Curiosity + 1f) * 0.5f;
                     if (cq < 0f) cq = 0f;
                     if (cq > 1f) cq = 1f;
-                    var pr = _p.ObserveLearnNutCrack * (0.25f + 0.75f * cq);
+                    var pr = def.ObserveLearn * (0.25f + 0.75f * cq);
                     if (_rng.NextDouble() >= pr) continue;
-                    a.CultureFlags |= NutCrackFlag;
-                    LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 观摩学会了坚果敲裂 (tick {_tickCount})");
+                    a.AddCulture(def.Id);
+                    var dn = string.IsNullOrEmpty(def.DisplayName) ? def.Id : def.DisplayName;
+                    LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 观摩学会了{dn} (tick {_tickCount})");
                     break;
                 }
             }
         }
 
-        private void MaybeInventNutCrack()
+        private void MaybeInvent(CultureSkillDef def)
         {
             for (var i = 0; i < _apes.Count; i++)
             {
                 var a = _apes[i];
                 if (!a.Alive) continue;
-                if ((a.CultureFlags & NutCrackFlag) != 0) continue;
+                if (a.HasCulture(def.Id)) continue;
                 if (a.Stage != LifeStage.Adult) continue;
-                if (!IsNearFoliageFruitForInvent(a)) continue;
-                if (_rng.NextDouble() >= _p.NutCrackInventPerTick) continue;
-                a.CultureFlags |= NutCrackFlag;
-                LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 独自琢磨出了坚果敲裂 (tick {_tickCount})");
+                if (!MeetsPrereqs(a, def)) continue;
+                if (!InventContextSatisfied(a, def)) continue;
+                if (_rng.NextDouble() >= def.InventPerTick) continue;
+                a.AddCulture(def.Id);
+                var dn = string.IsNullOrEmpty(def.DisplayName) ? def.Id : def.DisplayName;
+                LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 独自琢磨出了{dn} (tick {_tickCount})");
+            }
+        }
+
+        private bool InventContextSatisfied(ApeCell a, CultureSkillDef def)
+        {
+            if (def == null) return false;
+            switch (def.InventContext)
+            {
+                case CultureInventContext.NearFruitTree:
+                    return IsNearFoliageFruitForInvent(a);
+                case CultureInventContext.None:
+                default:
+                    return true;
             }
         }
 
@@ -1377,50 +1454,6 @@ namespace LandKing.Simulation
                 if (_map.Tiles[x, y] == TileType.FruitTree && _map.Food[x, y] > 0.01f) return true;
             }
             return false;
-        }
-
-        private void MaybeObserveFruitScout()
-        {
-            for (var i = 0; i < _apes.Count; i++)
-            {
-                var a = _apes[i];
-                if (!a.Alive) continue;
-                if ((a.CultureFlags & FruitScoutFlag) != 0) continue;
-                if (!LifeStageUtil.CanLearnCulture(a.Stage)) continue;
-                for (var j = 0; j < _apes.Count; j++)
-                {
-                    var t = _apes[j];
-                    if (!t.Alive) continue;
-                    if ((t.CultureFlags & FruitScoutFlag) == 0) continue;
-                    if (!LifeStageUtil.CanMentorCulture(t.Stage)) continue;
-                    if (t.Side != a.Side) continue;
-                    var dist = System.Math.Abs(a.X - t.X) + System.Math.Abs(a.Y - t.Y);
-                    if (dist > 2) continue;
-                    var cq = (a.Curiosity + 1f) * 0.5f;
-                    if (cq < 0f) cq = 0f;
-                    if (cq > 1f) cq = 1f;
-                    var pr = _p.ObserveLearnFruitScout * (0.25f + 0.75f * cq);
-                    if (_rng.NextDouble() >= pr) continue;
-                    a.CultureFlags |= FruitScoutFlag;
-                    LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 观摩学会了果记精描 (tick {_tickCount})");
-                    break;
-                }
-            }
-        }
-
-        private void MaybeInventFruitScout()
-        {
-            for (var i = 0; i < _apes.Count; i++)
-            {
-                var a = _apes[i];
-                if (!a.Alive) continue;
-                if ((a.CultureFlags & FruitScoutFlag) != 0) continue;
-                if (a.Stage != LifeStage.Adult) continue;
-                if (!IsNearFoliageFruitForInvent(a)) continue;
-                if (_rng.NextDouble() >= _p.FruitScoutInventPerTick) continue;
-                a.CultureFlags |= FruitScoutFlag;
-                LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 独自琢磨出了果记精描 (tick {_tickCount})");
-            }
         }
 
         private int MinManhattanToAnyPredator(int x, int y, out int bestIndex)
@@ -1460,7 +1493,40 @@ namespace LandKing.Simulation
             public float FoodMemStrength;
             public int PeerId = -1;
             public float PeerMemStrength;
-            public int CultureFlags;
+            private List<string> _cultureIds;
+
+            public bool HasCulture(string skillId)
+            {
+                if (string.IsNullOrEmpty(skillId) || _cultureIds == null) return false;
+                for (var i = 0; i < _cultureIds.Count; i++)
+                {
+                    if (string.Equals(_cultureIds[i], skillId, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                return false;
+            }
+
+            public void AddCulture(string skillId)
+            {
+                if (string.IsNullOrEmpty(skillId)) return;
+                if (HasCulture(skillId)) return;
+                if (_cultureIds == null) _cultureIds = new List<string>(4);
+                _cultureIds.Add(skillId);
+            }
+
+            public List<string> SnapshotCultures()
+            {
+                if (_cultureIds == null || _cultureIds.Count == 0) return new List<string>();
+                return new List<string>(_cultureIds);
+            }
+
+            private string[] SortedCultureIdsForSave()
+            {
+                if (_cultureIds == null || _cultureIds.Count == 0) return System.Array.Empty<string>();
+                var a = new string[_cultureIds.Count];
+                for (var i = 0; i < _cultureIds.Count; i++) a[i] = _cultureIds[i];
+                System.Array.Sort(a, StringComparer.OrdinalIgnoreCase);
+                return a;
+            }
 
             public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f)
             {
@@ -1497,12 +1563,13 @@ namespace LandKing.Simulation
                 FoodMemStrength = FoodMemStrength,
                 PeerId = PeerId,
                 PeerMemStrength = PeerMemStrength,
-                CultureFlags = CultureFlags
+                cultureSkillIds = SortedCultureIdsForSave(),
+                CultureFlags = 0
             };
 
             public static ApeCell FromSave(ApeSaveRecord r)
             {
-                return new ApeCell
+                var a = new ApeCell
                 {
                     Id = r.Id,
                     Hunger = r.Hunger,
@@ -1527,9 +1594,26 @@ namespace LandKing.Simulation
                     FoodMemY = r.FoodMemY,
                     FoodMemStrength = r.FoodMemStrength,
                     PeerId = r.PeerId,
-                    PeerMemStrength = r.PeerMemStrength,
-                    CultureFlags = r.CultureFlags
+                    PeerMemStrength = r.PeerMemStrength
                 };
+                if (r.cultureSkillIds != null && r.cultureSkillIds.Length > 0)
+                {
+                    for (var i = 0; i < r.cultureSkillIds.Length; i++)
+                    {
+                        var s = r.cultureSkillIds[i];
+                        if (!string.IsNullOrEmpty(s)) a.AddCulture(s.Trim());
+                    }
+                }
+                else
+                {
+                    if ((r.CultureFlags & 1) != 0) a.AddCulture(LandKingCultureIds.NutCrack);
+                    if ((r.CultureFlags & 2) != 0)
+                    {
+                        a.AddCulture(LandKingCultureIds.NutCrack);
+                        a.AddCulture(LandKingCultureIds.FruitScout);
+                    }
+                }
+                return a;
             }
 
             private ApeCell() { }
@@ -1556,7 +1640,7 @@ namespace LandKing.Simulation
                 ParentId0 = ParentA,
                 ParentId1 = ParentB,
                 BodyScale = BodyScale,
-                CultureFlags = CultureFlags
+                CultureSkillIds = SortedCultureIdsForSave()
             };
         }
     }

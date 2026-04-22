@@ -33,7 +33,11 @@ namespace LandKing.Prototype
             if (data == null) { error = "JSON 反序列化失败"; return false; }
             try
             {
-                var sim = WorldSimulation.FromSave(data);
+                var mods = L1ModLoader.Load();
+                var cult = (mods != null && mods.Success && mods.Culture != null)
+                    ? mods.Culture
+                    : CultureTableBuilder.FromParamsOnly(data.Params != null ? data.Params : SimParams.Default);
+                var sim = WorldSimulation.FromSave(data, cult);
                 world.ReplaceSimulation(sim, clearSelection: true);
                 CompareL1ToSession(data, world.GetComponent<EventLog>());
                 return true;
