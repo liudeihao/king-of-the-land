@@ -119,7 +119,8 @@ namespace LandKing.Prototype
             if (_hud == null || _time == null || _world == null || _world.Sim == null) return;
             var modLine = GetModHudLine();
             var followLine = GetCameraFollowLine();
-            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [V]镜头随选中\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
+            var pauseS = _time.Paused ? "  已暂停" : string.Empty;
+            _hud.text = $"Tick: {Tick()}{pauseS}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [Tab]切选中  [V]随镜头\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
             if (_current != null)
             {
                 var st = _world.Sim.FindApe(_current.ApeId);

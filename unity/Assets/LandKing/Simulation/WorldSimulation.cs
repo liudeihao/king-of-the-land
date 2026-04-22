@@ -6,8 +6,6 @@ namespace LandKing.Simulation
     /// <summary>Headless world: 里程碑二、三、四向（双岸水位、旱灾、东岸叙事、雨干预）；编年史事件为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
-        private const int ChronicleMaxEntries = 64;
-
         private readonly SimParams _p;
         private SimRng _rng;
         private readonly int _initialSeed;
@@ -28,9 +26,9 @@ namespace LandKing.Simulation
 
         public WorldSimulation(int randomSeed = 42, SimParams parameters = null)
         {
-            _chronicle = new List<WorldEventRecord>(ChronicleMaxEntries);
             _initialSeed = randomSeed;
             _p = parameters != null ? parameters.Copy() : SimParams.Default.Copy();
+            _chronicle = new List<WorldEventRecord>(ChronicleCap());
             _rng = new SimRng(randomSeed);
             _map = CreateMapAndFood(_rng, _p, out var leftCells, out var rightCells);
             _apes = new List<ApeCell>(20);
@@ -166,31 +164,42 @@ namespace LandKing.Simulation
             return c;
         }
 
-        /// <summary>Last entries for persistence / 读档重播（环形 cap 64）。</summary>
+        /// <summary>Last entries for persistence / 读档重播（cap 由 <see cref="SimParams.ChronicleMaxEntries"/> 决定）。</summary>
         public IReadOnlyList<WorldEventRecord> GetChronicleSnapshot()
         {
             if (_chronicle == null || _chronicle.Count == 0) return Array.Empty<WorldEventRecord>();
             return _chronicle;
         }
 
+        private int ChronicleCap()
+        {
+            var c = _p.ChronicleMaxEntries;
+            if (c <= 0) c = 64;
+            if (c < 8) c = 8;
+            if (c > 256) c = 256;
+            return c;
+        }
+
         private void LogEvent(WorldEventKind kind, string message)
         {
             var rec = new WorldEventRecord { Tick = _tickCount, Kind = kind, Message = message };
             _eventQueue.Add(rec);
-            if (_chronicle == null) _chronicle = new List<WorldEventRecord>(ChronicleMaxEntries);
+            var cap = ChronicleCap();
+            if (_chronicle == null) _chronicle = new List<WorldEventRecord>(cap);
             _chronicle.Add(rec);
-            while (_chronicle.Count > ChronicleMaxEntries) _chronicle.RemoveAt(0);
+            while (_chronicle.Count > cap) _chronicle.RemoveAt(0);
         }
 
         private void HydrateNarrationFlags()
         {
-            if (_tickCount >= 20) _eastHintLogged = true;
+            if (_p.EastShoreNarrativeTick <= 0) _eastHintLogged = true;
+            else if (_tickCount >= _p.EastShoreNarrativeTick) _eastHintLogged = true;
             if (_droughtActive && System.Math.Min(_waterLeft, _waterRight) < 0.4f) _droughtSevereLogged = true;
         }
 
         private void LoadChronicleFromSave(WorldSaveV1 data)
         {
-            _chronicle = new List<WorldEventRecord>(ChronicleMaxEntries);
+            _chronicle = new List<WorldEventRecord>(ChronicleCap());
             if (data.Chronicle == null) return;
             for (var i = 0; i < data.Chronicle.Length; i++)
             {
@@ -203,7 +212,8 @@ namespace LandKing.Simulation
                     Message = s.Message ?? string.Empty
                 });
             }
-            while (_chronicle.Count > ChronicleMaxEntries) _chronicle.RemoveAt(0);
+            var cap = ChronicleCap();
+            while (_chronicle.Count > cap) _chronicle.RemoveAt(0);
         }
 
         private static WorldEventKind ToKindClamped(int raw)
@@ -285,7 +295,7 @@ namespace LandKing.Simulation
                     LogEvent(WorldEventKind.DroughtSevere, "旱情加重：两岸果树随水位恢复食物变慢；东岸在降雨前更依赖残存果量。");
                 }
             }
-            if (!_eastHintLogged && _tickCount == 20)
+            if (_p.EastShoreNarrativeTick > 0 && !_eastHintLogged && _tickCount == _p.EastShoreNarrativeTick)
             {
                 _eastHintLogged = true;
                 LogEvent(WorldEventKind.EastShore, "东岸果林方向传来猿声——河另一侧还有另一小群同族在活动。");

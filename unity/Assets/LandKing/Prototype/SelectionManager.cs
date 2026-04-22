@@ -1,8 +1,9 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LandKing.Prototype
 {
-    /// <summary>点击选取猿. 对应原型 第五步.</summary>
+    /// <summary>点击选取；[Tab]/[Shift+Tab] 在存活族人间循环（不点到 UI 时）。</summary>
     public sealed class SelectionManager : MonoBehaviour
     {
         [SerializeField] private WorldManager _world;
@@ -18,6 +19,11 @@ namespace LandKing.Prototype
 
         private void Update()
         {
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Tab) && (_ui == null || !_ui.IsPointerOverUi()))
+            {
+                var shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
+                CycleSelection(shift);
+            }
             if (UnityEngine.Input.GetMouseButtonDown(0) && _ui != null && !_ui.IsPointerOverUi())
             {
                 var cam = Camera.main;
@@ -31,6 +37,29 @@ namespace LandKing.Prototype
                     if (ape != null) Set(ape);
                 }
             }
+        }
+
+        private void CycleSelection(bool reverse)
+        {
+            if (_world == null || _world.Sim == null) return;
+            var cands = new List<Ape>(8);
+            foreach (var a in _world.Apes)
+            {
+                var st = _world.Sim.FindApe(a.ApeId);
+                if (st.HasValue && st.Value.Alive) cands.Add(a);
+            }
+            cands.Sort((a, b) => a.ApeId.CompareTo(b.ApeId));
+            if (cands.Count == 0) { Set(null); return; }
+            if (cands.Count == 1) { Set(cands[0]); return; }
+            var idx = 0;
+            if (_selected != null)
+            {
+                idx = cands.FindIndex(x => x == _selected);
+                if (idx < 0) idx = 0;
+            }
+            if (reverse) idx = (idx - 1 + cands.Count) % cands.Count;
+            else idx = (idx + 1) % cands.Count;
+            Set(cands[idx]);
         }
 
         public void Set(Ape ape)

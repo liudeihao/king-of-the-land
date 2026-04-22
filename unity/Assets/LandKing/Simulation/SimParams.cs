@@ -30,6 +30,10 @@ namespace LandKing.Simulation
         public float SocialMinHunger = 0.55f;
         public float SocialAdultStepChance = 0.06f;
         public float MinFruitToEat = 0.3f;
+        /// <summary>环形编年史条数，0=按 64 处理；在模拟内钳到 8..256。</summary>
+        public int ChronicleMaxEntries = 64;
+        /// <summary>东岸同族提示触发 tick，0=不触发。</summary>
+        public int EastShoreNarrativeTick = 20;
 
         public SimParams Copy()
         {

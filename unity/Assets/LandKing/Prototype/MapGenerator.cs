@@ -8,6 +8,7 @@ namespace LandKing.Prototype
     {
         [SerializeField] private Color grass = new Color(0.55f, 0.85f, 0.5f);
         [SerializeField] private Color river = new Color(0.2f, 0.5f, 0.9f);
+        [SerializeField] private Color riverLowWater = new Color(0.28f, 0.4f, 0.5f);
         [SerializeField] private Color fruit = new Color(0.1f, 0.5f, 0.2f);
         [SerializeField] private Color fruitDry = new Color(0.55f, 0.42f, 0.2f);
         [SerializeField] private float waterDryThreshold = 0.3f;
@@ -46,7 +47,15 @@ namespace LandKing.Prototype
                 var t = _map.Tiles[x, y];
                 var sr = _renderers[x, y];
                 if (t == TileType.Grass) sr.color = grass;
-                else if (t == TileType.River) sr.color = river;
+                else if (t == TileType.River)
+                {
+                    if (_sim != null && _sim.DroughtActive)
+                    {
+                        var w = 0.5f * (_sim.WaterLeft + _sim.WaterRight);
+                        sr.color = Color.Lerp(riverLowWater, river, Mathf.Clamp01(w));
+                    }
+                    else sr.color = river;
+                }
                 else
                 {
                     var w = x < MapData.RiverX ? _sim.WaterLeft : _sim.WaterRight;
