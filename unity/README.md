@@ -14,5 +14,6 @@
 
 在 **SampleScene** 中按 **Play**：由 `LandKing.Prototype.PrototypeEntry` 自动生成 `PrototypeGameRoot`，运行 20×20 地图、10 只猿、分阶段 Tick 与旱灾/降雨。
 
-- **L1 数据 Mod**：`Assets/StreamingAssets/Mods/<文件夹>/` 下至少需 **`mod.json` 与/或 `sim_params.json`**. `mod.json` 可含 `id` / `version` / `kind`（`core` 在拓扑同层优先）/ `dependencies`（`id` + `version` 范围，如 `>=1.0.0`）/ `conflicts`（同批不能共存）。`sim_params.json` 仍为 `patches` 表，按**依赖解析后的顺序**叠到 `SimParams`；任一步失败则**整批**回退默认并打 Log + HUD 首条错误。样例 **`000_landking_core`**（仅元数据、无补丁）+ **`001_slower_crisis`**（依赖 `landking.core`、改旱灾参数）。删除 `Mods` 下内容可测纯默认。
+- **L1 数据 Mod**：`Assets/StreamingAssets/Mods/<文件夹>/` 下至少需 `**mod.json` 与/或 `sim_params.json`**. `mod.json` 可含 `id` / `version` / `kind`（`core` 在拓扑同层优先）/ `dependencies`（`id` + `version` 范围，如 `>=1.0.0`）/ `conflicts`（同批不能共存）。`sim_params.json` 仍为 `patches` 表，按**依赖解析后的顺序**叠到 `SimParams`；任一步失败则**整批**回退默认并打 Log + HUD 首条错误。样例 `**000_landking_core`**（仅元数据、无补丁）+ `**001_slower_crisis**`（依赖 `landking.core`、改旱灾参数）。删除 `Mods` 下内容可测纯默认。
+- **存档 v1**（`WorldSaveV1` + `SimRng`）：`Application.persistentDataPath/landking_save_v1.json`，含参数快照、地图、全部猿、水位与 PRNG 状态。Play 时 **F5** 写入、**F9** 读入（会重建实体与 Map）。与 Mod 包列表尚未绑定，后续可写入同一 JSON 的扩展头。
 - 更细的玩法说明见 `docs/实现/原型构建步骤.md`。

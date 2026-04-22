@@ -29,6 +29,7 @@ namespace LandKing.Prototype
             var e = gameObject.AddComponent<EventLog>();
             var u = gameObject.AddComponent<UIManager>();
             _ = gameObject.AddComponent<SelectionManager>();
+            _ = gameObject.AddComponent<SaveLoadHotkeys>();
             w.SetEventLog(e);
             w.Build(42, mods.Sim);
             u.CreateUi(transform);

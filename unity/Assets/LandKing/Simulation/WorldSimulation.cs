@@ -7,7 +7,8 @@ namespace LandKing.Simulation
     public sealed class WorldSimulation
     {
         private readonly SimParams _p;
-        private readonly System.Random _rng;
+        private SimRng _rng;
+        private readonly int _initialSeed;
         private readonly MapData _map;
         private readonly List<ApeCell> _apes;
         private readonly List<int> _newViewApeIds = new List<int>(4);
@@ -22,12 +23,104 @@ namespace LandKing.Simulation
 
         public WorldSimulation(int randomSeed = 42, SimParams parameters = null)
         {
+            _initialSeed = randomSeed;
             _p = parameters != null ? parameters.Copy() : SimParams.Default.Copy();
-            _rng = new System.Random(randomSeed);
+            _rng = new SimRng(randomSeed);
             _map = CreateMapAndFood(_rng, _p, out var leftCells, out var rightCells);
             _apes = new List<ApeCell>(20);
             _nextId = 0;
             _nextId = PlaceInitialApes(_rng, _apes, leftCells, rightCells, _nextId);
+        }
+
+        private WorldSimulation(SimParams p, MapData map, List<ApeCell> apes, int tickCount, int nextId, int initialSeed, SimRng rng,
+            float waterLeft, float waterRight, bool droughtActive, bool rainUsed, bool droughtLogged)
+        {
+            _p = p;
+            _map = map;
+            _apes = apes;
+            _tickCount = tickCount;
+            _nextId = nextId;
+            _initialSeed = initialSeed;
+            _rng = rng;
+            _waterLeft = waterLeft;
+            _waterRight = waterRight;
+            _droughtActive = droughtActive;
+            _rainUsed = rainUsed;
+            _droughtLogged = droughtLogged;
+        }
+
+        public static WorldSimulation FromSave(WorldSaveV1 data)
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data));
+            if (data.Schema != 1) throw new InvalidOperationException($"WorldSave  schema {data.Schema} 不支持，需要 1。");
+            if (data.MapTiles == null || data.MapFood == null) throw new InvalidOperationException("存档缺少地图数据。");
+            if (data.Apes == null) throw new InvalidOperationException("存档缺少个体数据。");
+            var p = data.Params != null ? data.Params.Copy() : SimParams.Default.Copy();
+            var map = RebuildMap(data.MapTiles, data.MapFood);
+            var apes = RebuildApes(data.Apes);
+            var rng = new SimRng(data.RngState);
+            return new WorldSimulation(
+                p, map, apes, data.TickCount, data.NextId, data.RandomSeed, rng,
+                data.WaterLeft, data.WaterRight, data.DroughtActive, data.RainUsed, data.DroughtLogged);
+        }
+
+        public int InitialSeed => _initialSeed;
+        public SimRng Rng => _rng;
+        public WorldSaveV1 ExportSave()
+        {
+            var m = (int)MapData.Size;
+            var n = m * m;
+            var tiles = new int[n];
+            var food = new float[n];
+            for (var y = 0; y < m; y++)
+            for (var x = 0; x < m; x++)
+            {
+                var i = y * m + x;
+                tiles[i] = (int)_map.Tiles[x, y];
+                food[i] = _map.Food[x, y];
+            }
+            var rec = new ApeSaveRecord[_apes.Count];
+            for (var i = 0; i < _apes.Count; i++) rec[i] = _apes[i].ToSave();
+            return new WorldSaveV1
+            {
+                Schema = 1,
+                RandomSeed = _initialSeed,
+                RngState = _rng.State,
+                TickCount = _tickCount,
+                NextId = _nextId,
+                WaterLeft = _waterLeft,
+                WaterRight = _waterRight,
+                DroughtActive = _droughtActive,
+                RainUsed = _rainUsed,
+                DroughtLogged = _droughtLogged,
+                Params = _p.Copy(),
+                MapTiles = tiles,
+                MapFood = food,
+                Apes = rec
+            };
+        }
+
+        private static MapData RebuildMap(int[] tiles, float[] f)
+        {
+            var m = MapData.Size;
+            if (tiles.Length != m * m || f.Length != m * m) throw new InvalidOperationException("地图尺寸与存档不符。");
+            var t = new TileType[m, m];
+            var food = new float[m, m];
+            for (var y = 0; y < m; y++)
+            for (var x = 0; x < m; x++)
+            {
+                var i = y * m + x;
+                t[x, y] = (TileType)tiles[i];
+                food[x, y] = f[i];
+            }
+            return new MapData(t, food);
+        }
+
+        private static List<ApeCell> RebuildApes(ApeSaveRecord[] rec)
+        {
+            var list = new List<ApeCell>(rec.Length);
+            for (var i = 0; i < rec.Length; i++) list.Add(ApeCell.FromSave(rec[i]));
+            return list;
         }
 
         public SimParams Parameters => _p;
@@ -417,7 +510,7 @@ namespace LandKing.Simulation
             }
         }
 
-        private static MapData CreateMapAndFood(System.Random rng, SimParams p, out int[] leftCells, out int[] rightCells)
+        private static MapData CreateMapAndFood(SimRng rng, SimParams p, out int[] leftCells, out int[] rightCells)
         {
             var tiles = new TileType[MapData.Size, MapData.Size];
             var food = new float[MapData.Size, MapData.Size];
@@ -433,7 +526,7 @@ namespace LandKing.Simulation
             return new MapData(tiles, food);
         }
 
-        private static void PlaceFruits(System.Random rng, TileType[,] tiles, float[,] food, int x0, int x1, int count, float maxFoodPerCell)
+        private static void PlaceFruits(SimRng rng, TileType[,] tiles, float[,] food, int x0, int x1, int count, float maxFoodPerCell)
         {
             var pool = new List<(int x, int y)>();
             for (var y = 0; y < MapData.Size; y++)
@@ -460,14 +553,14 @@ namespace LandKing.Simulation
             return list.ToArray();
         }
 
-        private static int PlaceInitialApes(System.Random rng, List<ApeCell> apes, int[] leftCells, int[] rightCells, int nextId)
+        private static int PlaceInitialApes(SimRng rng, List<ApeCell> apes, int[] leftCells, int[] rightCells, int nextId)
         {
             nextId = PlaceSide(rng, apes, leftCells, ApeSide.Left, 5, nextId);
             nextId = PlaceSide(rng, apes, rightCells, ApeSide.Right, 5, nextId);
             return nextId;
         }
 
-        private static int PlaceSide(System.Random rng, List<ApeCell> apes, int[] raw, ApeSide side, int count, int nextId)
+        private static int PlaceSide(SimRng rng, List<ApeCell> apes, int[] raw, ApeSide side, int count, int nextId)
         {
             var shuf = (int[])raw.Clone();
             for (var i = shuf.Length - 1; i > 0; i--)
@@ -517,6 +610,55 @@ namespace LandKing.Simulation
                 ParentA = p0; ParentB = p1;
                 Stage = LifeStageUtil.FromAge(age);
             }
+
+            public ApeSaveRecord ToSave() => new ApeSaveRecord
+            {
+                Id = Id,
+                Hunger = Hunger,
+                Health = Health,
+                Age = Age,
+                Alive = Alive,
+                Nickname = Nickname ?? string.Empty,
+                X = X,
+                Y = Y,
+                Side = (int)Side,
+                IsMale = IsMale,
+                Courage = Courage,
+                Curiosity = Curiosity,
+                BodyScale = BodyScale,
+                Stage = (int)Stage,
+                ParentA = ParentA,
+                ParentB = ParentB,
+                PregnancyCountdown = PregnancyCountdown,
+                SireId = SireId
+            };
+
+            public static ApeCell FromSave(ApeSaveRecord r)
+            {
+                return new ApeCell
+                {
+                    Id = r.Id,
+                    Hunger = r.Hunger,
+                    Health = r.Health,
+                    Age = r.Age,
+                    Alive = r.Alive,
+                    Nickname = r.Nickname ?? string.Empty,
+                    X = r.X,
+                    Y = r.Y,
+                    Side = (ApeSide)r.Side,
+                    IsMale = r.IsMale,
+                    Courage = r.Courage,
+                    Curiosity = r.Curiosity,
+                    BodyScale = r.BodyScale,
+                    Stage = (LifeStage)r.Stage,
+                    ParentA = r.ParentA,
+                    ParentB = r.ParentB,
+                    PregnancyCountdown = r.PregnancyCountdown,
+                    SireId = r.SireId
+                };
+            }
+
+            private ApeCell() { }
 
             public ApeState ToState() => new ApeState
             {

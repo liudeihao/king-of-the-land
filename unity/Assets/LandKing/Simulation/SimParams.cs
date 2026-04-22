@@ -1,6 +1,9 @@
+using System;
+
 namespace LandKing.Simulation
 {
     /// <summary>表驱动参数（L1 数据 Mod 的合并目标；内核不做 JSON 解析）。</summary>
+    [Serializable]
     public sealed class SimParams
     {
         public static readonly SimParams Default = new SimParams();

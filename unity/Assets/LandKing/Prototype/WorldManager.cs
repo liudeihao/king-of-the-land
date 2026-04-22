@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using LandKing.Simulation;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace LandKing.Prototype
 {
@@ -21,13 +22,30 @@ namespace LandKing.Prototype
 
         public void Build(int randomSeed = 42, SimParams simParams = null)
         {
-            _sim = new WorldSimulation(randomSeed, simParams);
             _apeRoot = new GameObject("Apes").transform;
             _apeRoot.SetParent(transform, false);
             var go = new GameObject("Map");
             go.transform.SetParent(transform, false);
             _map = go.AddComponent<MapGenerator>();
-            _map.Build(_sim);
+            _sim = new WorldSimulation(randomSeed, simParams);
+            SpawnApeAndMapViews();
+        }
+
+        public void ReplaceSimulation(WorldSimulation sim, bool clearSelection = false)
+        {
+            if (sim == null) return;
+            if (_apeRoot == null) return;
+            _sim = sim;
+            for (var i = _apeRoot.childCount - 1; i >= 0; i--) Object.Destroy(_apeRoot.GetChild(i).gameObject);
+            _apes.Clear();
+            if (_map != null) _map.Build(_sim);
+            SpawnApeViewObjects();
+            if (EventLog != null) EventLog.Add("已从存档恢复世界。");
+            if (clearSelection) GetComponent<SelectionManager>()?.Set(null);
+        }
+
+        private void SpawnApeViewObjects()
+        {
             var states = _sim.GetApeStates();
             for (var i = 0; i < states.Count; i++)
             {
@@ -39,6 +57,12 @@ namespace LandKing.Prototype
                 _apes.Add(ape);
             }
             SyncAll();
+        }
+
+        private void SpawnApeAndMapViews()
+        {
+            _map.Build(_sim);
+            SpawnApeViewObjects();
         }
 
         public void StepSimulation()

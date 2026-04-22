@@ -109,7 +109,7 @@ namespace LandKing.Prototype
         {
             if (_hud == null || _time == null || _world == null || _world.Sim == null) return;
             var modLine = GetModHudLine();
-            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]倍速\n{modLine}\n水位 西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
+            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]倍速  [F5]存 [F9]读\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
             if (_current != null)
             {
                 var st = _world.Sim.FindApe(_current.ApeId);
