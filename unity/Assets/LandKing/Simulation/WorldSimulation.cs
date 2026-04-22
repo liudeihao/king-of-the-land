@@ -460,7 +460,11 @@ namespace LandKing.Simulation
                 if (m == null) continue;
                 if (m.Hunger < _p.MatingMinHunger) continue;
                 if (!LifeStageUtil.CanBreed(m.Stage)) continue;
-                if (_rng.NextDouble() >= _p.MatingRoll) continue;
+                var effMating = _p.MatingRoll;
+                if (_p.MatingStressPenalty > 0f)
+                    effMating *= 1.0 - _p.MatingStressPenalty * f.Stress;
+                if (effMating < 0.00005) effMating = 0.00005;
+                if (_rng.NextDouble() >= effMating) continue;
                 f.PregnancyCountdown = _p.PregnancyDurationTicks;
                 f.SireId = m.Id;
             }
@@ -498,7 +502,7 @@ namespace LandKing.Simulation
                     pSocial *= 1.0 - _p.SocialStressInhibit * a.Stress;
                 if (_rng.NextDouble() >= pSocial) continue;
                 ApeCell target = null;
-                var best = 99;
+                var bestScore = float.MaxValue;
                 for (var j = 0; j < _apes.Count; j++)
                 {
                     var o = _apes[j];
@@ -506,7 +510,10 @@ namespace LandKing.Simulation
                     if (o.Side != a.Side) continue;
                     var d = System.Math.Abs(a.X - o.X) + System.Math.Abs(a.Y - o.Y);
                     if (d <= 0 || d > 6) continue;
-                    if (d < best) { best = d; target = o; }
+                    var score = (float)d;
+                    if (_p.PeerSocialPreferBias > 0f && a.PeerMemStrength > 0.1f && o.Id == a.PeerId)
+                        score -= _p.PeerSocialPreferBias * a.PeerMemStrength;
+                    if (score < bestScore) { bestScore = score; target = o; }
                 }
                 if (target != null)
                 {
@@ -679,7 +686,13 @@ namespace LandKing.Simulation
 
         private void WanderingStep(ApeCell ape)
         {
-            if (ape.Stress > 0.45f && _p.StressWanderFreeze > 0f && _rng.NextDouble() < ape.Stress * _p.StressWanderFreeze) return;
+            var courage01 = (ape.Courage + 1f) * 0.5f;
+            if (courage01 < 0f) courage01 = 0f;
+            if (courage01 > 1f) courage01 = 1f;
+            var freezeMul = 1f - _p.CourageWanderResist * courage01;
+            if (freezeMul < 0.12f) freezeMul = 0.12f;
+            if (ape.Stress > 0.45f && _p.StressWanderFreeze > 0f &&
+                _rng.NextDouble() < ape.Stress * _p.StressWanderFreeze * freezeMul) return;
             if (_rng.Next(0, 10) < 2) return;
             if (_p.PeerMemoryWanderBias > 0f && ape.PeerMemStrength > 0.08f && ape.PeerId >= 0)
             {

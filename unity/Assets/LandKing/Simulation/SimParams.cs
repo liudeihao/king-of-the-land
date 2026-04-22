@@ -56,6 +56,12 @@ namespace LandKing.Simulation
         public float PeerMemoryWanderBias = 0.3f;
         /// <summary>每次成年社交步进（命中随机后朝同类走）时增加印象，上限 1。</summary>
         public float PeerMemoryReinforce = 0.14f;
+        /// <summary>勇气 -1..1 映射后，降低游荡僵停概率；0=不影响。</summary>
+        public float CourageWanderResist = 0.35f;
+        /// <summary>选社交目标时，有同族印象的对象等效格距最多减这么多（再乘印象强度）。</summary>
+        public float PeerSocialPreferBias = 1.2f;
+        /// <summary>雌性压力越高，<see cref="MatingRoll"/> 等效越低；0=不影响。</summary>
+        public float MatingStressPenalty = 0.2f;
 
         public SimParams Copy()
         {
