@@ -59,11 +59,11 @@ namespace LandKing.Prototype
             prt.anchorMax = new Vector2(0, 0.5f);
             prt.pivot = new Vector2(0, 0.5f);
             prt.anchoredPosition = new Vector2(8, 0);
-            prt.sizeDelta = new Vector2(280, 300);
+            prt.sizeDelta = new Vector2(280, 400);
             p.AddComponent<Image>().color = new Color(0, 0, 0, 0.55f);
-            _detail = MkText(p.transform, 13, new Vector2(6, -8), new Vector2(260, 220), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
+            _detail = MkText(p.transform, 13, new Vector2(6, -8), new Vector2(260, 268), new Vector2(0, 1), new Vector2(0, 1), TextAnchor.UpperLeft);
             _detail.text = "选中：无";
-            _nameField = MkInput(p.transform, new Vector2(6, -252), new Vector2(200, 28));
+            _nameField = MkInput(p.transform, new Vector2(6, -300), new Vector2(200, 28));
             _nameField.onEndEdit.AddListener(s =>
             {
                 if (_current == null || _world == null) return;
@@ -154,6 +154,7 @@ namespace LandKing.Prototype
                         $"地点记忆: {FoodMemoryLine(a.FoodMemoryStrength)}\n" +
                         $"同族印象: {PeerImpressionLine(a.PeerImpressionId, a.PeerImpressionStrength)}\n" +
                         $"文化: {CultureText.FormatLine(_world.Sim.CultureDefinitions, a.CultureSkillIds)}\n" +
+                        CultureDetailBlock(a) +
                         $"年龄: {a.Age:0.0} 年   面: {(a.Side == ApeSide.Left ? "西" : "东")}\n" +
                         (a.Alive
                             ? (a.Hunger < 0.7f ? "状态: 觅食" : "状态: 游荡")
@@ -220,6 +221,13 @@ namespace LandKing.Prototype
         {
             if (s < 0.06f) return "无";
             return id >= 0 ? $"ID {id}（{s * 100f:0}%）" : "无";
+        }
+
+        private string CultureDetailBlock(ApeState a)
+        {
+            var block = CultureText.FormatSkillDescriptionsBlock(_world.Sim.CultureDefinitions, a.CultureSkillIds);
+            if (string.IsNullOrEmpty(block)) return string.Empty;
+            return "技艺说明:\n" + block + "\n";
         }
 
         private static string StageName(LifeStage s) => s switch

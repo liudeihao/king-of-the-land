@@ -31,6 +31,8 @@ namespace LandKing.Simulation
         private readonly WildlifeRuntimeResult _wildMaterialized;
         private HashSet<string> _milestoneFirstDone;
         private bool _milestoneEventsEnabled;
+        private string _settlementNameLeft;
+        private string _settlementNameRight;
 
         public WorldSimulation(int randomSeed = 42, SimParams parameters = null, WildlifeRuntimeResult wildlife = null, CultureRuntimeResult culture = null)
         {
@@ -41,6 +43,7 @@ namespace LandKing.Simulation
             _culture = culture ?? CultureTableBuilder.FromParamsOnly(_p);
             _chronicle = new List<WorldEventRecord>(ChronicleCap());
             _rng = new SimRng(randomSeed);
+            InitSettlementNamesForNewGame();
             _map = CreateMapAndFood(_rng, _p, out var leftCells, out var rightCells);
             _apes = new List<ApeCell>(20);
             _prey = new List<PreyEntity>(8);
@@ -103,6 +106,7 @@ namespace LandKing.Simulation
             sim.LoadChronicleFromSave(data);
             sim.HydrateNarrationFlags();
             sim.HydrateMilestonesFromSave(data.MilestoneFirstDiscoveryKeys);
+            sim.HydrateSettlementNamesFromSave(data.SettlementNameLeft, data.SettlementNameRight, data.RandomSeed);
             return sim;
         }
 
@@ -192,7 +196,34 @@ namespace LandKing.Simulation
                 foreach (var s in _milestoneFirstDone) mkeys[mi++] = s;
                 data.MilestoneFirstDiscoveryKeys = mkeys;
             }
+            data.SettlementNameLeft = _settlementNameLeft;
+            data.SettlementNameRight = _settlementNameRight;
             return data;
+        }
+
+        private void InitSettlementNamesForNewGame()
+        {
+            _settlementNameLeft = NarrationNamePools.PickSettlement(_rng);
+            _settlementNameRight = NarrationNamePools.PickSettlement(_rng);
+            var guard = 0;
+            while (_settlementNameRight == _settlementNameLeft && guard++ < 48)
+                _settlementNameRight = NarrationNamePools.PickSettlement(_rng);
+        }
+
+        private void HydrateSettlementNamesFromSave(string left, string right, int seed)
+        {
+            if (!string.IsNullOrEmpty(left) && !string.IsNullOrEmpty(right))
+            {
+                _settlementNameLeft = left;
+                _settlementNameRight = right;
+                return;
+            }
+            var r = new SimRng(seed == 0 ? 0x52A7C0DE : seed ^ 0x51A71EE5);
+            _settlementNameLeft = NarrationNamePools.PickSettlement(r);
+            _settlementNameRight = NarrationNamePools.PickSettlement(r);
+            var g = 0;
+            while (_settlementNameRight == _settlementNameLeft && g++ < 48)
+                _settlementNameRight = NarrationNamePools.PickSettlement(r);
         }
 
         private void HydrateMilestonesFromSave(string[] keys)
@@ -215,10 +246,14 @@ namespace LandKing.Simulation
             if (string.IsNullOrEmpty(skillId) || _milestoneFirstDone == null) return;
             if (_milestoneFirstDone.Contains(skillId)) return;
             if (!_culture.ById.TryGetValue(skillId, out var def) || def == null) return;
-            if (string.IsNullOrEmpty(def.MilestoneDiscoveryPhrase)) return;
+            var discovery = def.MilestoneDiscoveryPhrase;
+            if (string.IsNullOrEmpty(discovery))
+                discovery = string.IsNullOrEmpty(def.DisplayName) ? def.Id : def.DisplayName;
+            if (string.IsNullOrEmpty(discovery)) return;
             _milestoneFirstDone.Add(skillId);
-            var place = a.Side == ApeSide.Left ? "西岸" : "东岸";
-            var msg = $"【{place}】聚落的【{Label(a)}】发现【{def.MilestoneDiscoveryPhrase}】";
+            var place = a.Side == ApeSide.Left ? _settlementNameLeft : _settlementNameRight;
+            if (string.IsNullOrEmpty(place)) place = a.Side == ApeSide.Left ? "西岸" : "东岸";
+            var msg = $"【{place}】聚落的【{Label(a)}】发现【{discovery}】";
             LogEvent(WorldEventKind.MilestoneFirstDiscovery, msg);
         }
 
@@ -578,10 +613,10 @@ namespace LandKing.Simulation
             var u = Mix(mother.Curiosity, sire.Curiosity);
             var body = 0.85f + (float)_rng.NextDouble() * 0.25f;
             var s0 = 0.1f + (float)_rng.NextDouble() * 0.1f;
-            _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id, s0));
+            var gname = NarrationNamePools.PickCallName(_rng);
+            _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id, s0, gname));
             _newViewApeIds.Add(id);
-            var ln = !string.IsNullOrEmpty(mother.Nickname) ? mother.Nickname : $"ID{mother.Id}";
-            LogEvent(WorldEventKind.Birth, $"{ln} 的孩子出生了 (id {id}, tick {_tickCount})");
+            LogEvent(WorldEventKind.Birth, $"{Label(mother)} 的孩子出生了 (id {id}, tick {_tickCount})");
         }
 
         private float Mix(float a, float b)
@@ -856,7 +891,12 @@ namespace LandKing.Simulation
             LogEvent(WorldEventKind.NaturalDeath, $"{Label(ape)} 衰老离世 (tick {_tickCount})");
         }
 
-        private static string Label(ApeCell a) => !string.IsNullOrEmpty(a.Nickname) ? a.Nickname : $"ID{a.Id}";
+        private static string Label(ApeCell a)
+        {
+            if (!string.IsNullOrEmpty(a.Nickname)) return a.Nickname;
+            if (!string.IsNullOrEmpty(a.GivenName)) return a.GivenName;
+            return $"ID{a.Id}";
+        }
 
         private void RegenFood()
         {
@@ -1151,7 +1191,8 @@ namespace LandKing.Simulation
                 var cur = (float)(rng.NextDouble() * 2 - 1);
                 var sc = 0.88f + (float)rng.NextDouble() * 0.2f;
                 var s0 = 0.1f + (float)rng.NextDouble() * 0.1f;
-                apes.Add(new ApeCell(nextId, x, y, side, k % 2 == 0, age, cr, cur, sc, -1, -1, s0));
+                var gname = NarrationNamePools.PickCallName(rng);
+                apes.Add(new ApeCell(nextId, x, y, side, k % 2 == 0, age, cr, cur, sc, -1, -1, s0, gname));
                 nextId++;
             }
             return nextId;
@@ -1611,6 +1652,7 @@ namespace LandKing.Simulation
             public float Age;
             public bool Alive = true;
             public string Nickname = string.Empty;
+            public string GivenName = string.Empty;
             public int X, Y;
             public ApeSide Side;
             public bool IsMale;
@@ -1661,13 +1703,14 @@ namespace LandKing.Simulation
                 return a;
             }
 
-            public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f)
+            public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f, string givenName = "")
             {
                 Id = id; X = x; Y = y; Side = side; IsMale = male;
                 Age = age; Courage = courage; Curiosity = curiosity; BodyScale = body;
                 ParentA = p0; ParentB = p1;
                 Stage = LifeStageUtil.FromAge(age);
                 Stress = initialStress;
+                GivenName = givenName ?? string.Empty;
             }
 
             public ApeSaveRecord ToSave() => new ApeSaveRecord
@@ -1678,6 +1721,7 @@ namespace LandKing.Simulation
                 Age = Age,
                 Alive = Alive,
                 Nickname = Nickname ?? string.Empty,
+                givenName = GivenName ?? string.Empty,
                 X = X,
                 Y = Y,
                 Side = (int)Side,
@@ -1729,6 +1773,9 @@ namespace LandKing.Simulation
                     PeerId = r.PeerId,
                     PeerMemStrength = r.PeerMemStrength
                 };
+                a.GivenName = r.givenName ?? string.Empty;
+                if (string.IsNullOrEmpty(a.GivenName))
+                    a.GivenName = NarrationNamePools.PickCallNameForLegacyId(r.Id, r.Side);
                 if (r.cultureSkillIds != null && r.cultureSkillIds.Length > 0)
                 {
                     for (var i = 0; i < r.cultureSkillIds.Length; i++)
@@ -1763,6 +1810,7 @@ namespace LandKing.Simulation
                 PeerImpressionStrength = PeerMemStrength,
                 Alive = Alive,
                 Nickname = Nickname,
+                GivenName = GivenName,
                 GridX = X,
                 GridY = Y,
                 Side = Side,

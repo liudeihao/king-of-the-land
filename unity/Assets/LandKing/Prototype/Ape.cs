@@ -64,6 +64,7 @@ namespace LandKing.Prototype
             else sr.color = s.IsMale ? maleColor : femaleColor;
             if (_label == null) return;
             if (!string.IsNullOrEmpty(s.Nickname)) _label.text = s.Nickname;
+            else if (!string.IsNullOrEmpty(s.GivenName)) _label.text = s.GivenName;
             else _label.text = $"ID{s.Id} {(s.IsMale ? "男" : "女")} {StageShort(s.Stage)}";
         }
 

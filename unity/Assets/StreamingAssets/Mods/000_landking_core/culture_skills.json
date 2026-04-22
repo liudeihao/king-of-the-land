@@ -4,18 +4,19 @@
     {
       "id": "landking.nut_crack",
       "displayName": "坚果敲裂",
+      "description": "以边缘锋利的厚石、砾或骨角砸裂硬壳果取仁；对应旧石器时代常见的砸击技术。学会后在果树上啮食时有额外饱食。",
       "requires": [],
       "observeLearn": 0.012,
       "inventPerTick": 0.00035,
       "initialMentorCount": 2,
       "inventContext": 1,
       "eatHungerBonus": 0.042,
-      "foodMemBoost": 0.0,
-      "milestoneDiscoveryPhrase": "硬壳果可用石块敲裂取食"
+      "foodMemBoost": 0.0
     },
     {
       "id": "landking.fruit_scout",
       "displayName": "果记精描",
+      "description": "在记忆中区分多片果区与多棵树的空间关系，减轻旱季中「果在哪」的搜寻成本。依赖「坚果敲裂」作为对植物碎屑环境的熟悉。",
       "requires": ["landking.nut_crack"],
       "observeLearn": 0.01,
       "inventPerTick": 0.00028,
@@ -23,7 +24,7 @@
       "inventContext": 1,
       "eatHungerBonus": 0.0,
       "foodMemBoost": 0.1,
-      "milestoneDiscoveryPhrase": "多棵好果树的位置能记得更清"
+      "milestoneDiscoveryPhrase": "能记住好几片果地哪棵更稳当"
     }
   ]
 }

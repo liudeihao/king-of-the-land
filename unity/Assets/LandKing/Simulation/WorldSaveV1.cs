@@ -26,6 +26,9 @@ namespace LandKing.Simulation
         public string[] l1ModDisplayNames;
         /// <summary>与 <see cref="l1ModFolders"/> 同批拓扑序的 mod id，用于读档时强匹配；旧档可缺省。</summary>
         public string[] l1ModIds;
+        /// <summary>两岸聚落名（随机池抽选）；旧档可缺省，读档时按种子补。</summary>
+        public string SettlementNameLeft;
+        public string SettlementNameRight;
         /// <summary>L1 各 Mod 可写的 JSON 分桶（Mod 内无代码时由 <c>l1_initial_persistent.json</c> 或首方逻辑填充）。</summary>
         public L1ModPersistentV1[] l1ModPersistent;
         public int NextPreyId;
@@ -60,6 +63,8 @@ namespace LandKing.Simulation
         public float Age;
         public bool Alive;
         public string Nickname;
+        /// <summary>随机池称呼；旧档可空，读档时按 id 稳定生成。</summary>
+        public string givenName;
         public int X, Y;
         public int Side;
         public bool IsMale;

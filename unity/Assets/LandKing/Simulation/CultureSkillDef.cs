@@ -5,6 +5,8 @@ namespace LandKing.Simulation
     {
         public string Id;
         public string DisplayName;
+        /// <summary>技艺说明（工具、考占或玩法）；可为空。</summary>
+        public string Description;
         public string[] Requires;
         public float ObserveLearn;
         public double InventPerTick;
@@ -12,7 +14,7 @@ namespace LandKing.Simulation
         public CultureInventContext InventContext;
         public float EatHungerBonus;
         public float FoodMemBoost;
-        /// <summary>非空时：本局第一次有活体通过琢磨/观摩学会该技艺，记一条 <see cref="WorldEventKind.MilestoneFirstDiscovery"/> 并供 UI 强调；与开局师傅授予无关。</summary>
+        /// <summary>首次发现时【】内提示语；为空则用 <see cref="DisplayName"/>。特殊技艺可写长句，一般技艺可省略。</summary>
         public string MilestoneDiscoveryPhrase;
     }
 }

@@ -16,6 +16,7 @@ namespace LandKing.Simulation
     {
         public string id;
         public string displayName;
+        public string description;
         public string[] requires;
         public float observeLearn;
         public double inventPerTick;

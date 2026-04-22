@@ -19,6 +19,8 @@ namespace LandKing.Simulation
         public float PeerImpressionStrength;
         public bool Alive;
         public string Nickname;
+        /// <summary>开局/出生自随机池的称呼，可被 <see cref="Nickname"/> 覆盖展示。</summary>
+        public string GivenName;
         public int GridX;
         public int GridY;
         public ApeSide Side;

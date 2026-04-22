@@ -125,6 +125,7 @@ namespace LandKing.Simulation
                 {
                     Id = id,
                     DisplayName = string.IsNullOrEmpty(e.displayName) ? id : e.displayName,
+                    Description = string.IsNullOrEmpty(e.description) ? null : e.description.Trim(),
                     Requires = cleanReq,
                     ObserveLearn = e.observeLearn,
                     InventPerTick = e.inventPerTick,
