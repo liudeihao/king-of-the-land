@@ -1,0 +1,9 @@
+{
+  "id": "l2.pop_milestone",
+  "name": "L2 试手：人口里程碑（只写编年史）",
+  "version": "1.0.0",
+  "kind": "script",
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

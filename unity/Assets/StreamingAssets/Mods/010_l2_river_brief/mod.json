@@ -1,0 +1,9 @@
+{
+  "id": "l2.river_brief",
+  "name": "L2 试手：河况简报（周期）",
+  "version": "1.0.0",
+  "kind": "script",
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}
