@@ -1,0 +1,10 @@
+{
+  "id": "river_bounty",
+  "name": "丰饶河岸",
+  "version": "1.0.0",
+  "kind": "content",
+  "loadPriority": 30,
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

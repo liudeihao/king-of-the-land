@@ -1,0 +1,10 @@
+{
+  "id": "skill_spectacle",
+  "name": "传艺更快",
+  "version": "1.0.0",
+  "kind": "content",
+  "loadPriority": 40,
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

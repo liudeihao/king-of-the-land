@@ -1,0 +1,10 @@
+{
+  "id": "tranquil_shores",
+  "name": "宁静水岸（无掠食）",
+  "version": "1.0.0",
+  "kind": "content",
+  "loadPriority": 50,
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

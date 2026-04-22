@@ -1,0 +1,12 @@
+{
+  "patches": [
+    { "key": "MaxFoodPerCell", "value": "6.5" },
+    { "key": "FoodRegenIntervalTicks", "value": "8" },
+    { "key": "FoodRegenWaterMultiplier", "value": "0.58" },
+    { "key": "PreyCount", "value": "8" },
+    { "key": "PreyMeatHunger", "value": "0.26" },
+    { "key": "PreyRespawnDelayTicks", "value": "32" },
+    { "key": "MinFruitToEat", "value": "0.26" },
+    { "key": "EatHunger", "value": "0.34" }
+  ]
+}

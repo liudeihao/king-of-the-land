@@ -1,0 +1,9 @@
+{
+  "patches": [
+    { "key": "ObserveLearnNutCrack", "value": "0.018" },
+    { "key": "ObserveLearnFruitScout", "value": "0.016" },
+    { "key": "NutCrackInventPerTick", "value": "0.0005" },
+    { "key": "FruitScoutInventPerTick", "value": "0.00042" },
+    { "key": "ChronicleMaxEntries", "value": "96" }
+  ]
+}

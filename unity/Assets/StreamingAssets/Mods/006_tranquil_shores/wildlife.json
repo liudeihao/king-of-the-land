@@ -1,0 +1,12 @@
+{
+  "clearBaseline": false,
+  "species": [
+    {
+      "id": "core_stalker",
+      "kind": "predator_hunt_ape",
+      "count": 0,
+      "spookMaxStress": 0.08,
+      "spookRadius": 2
+    }
+  ]
+}

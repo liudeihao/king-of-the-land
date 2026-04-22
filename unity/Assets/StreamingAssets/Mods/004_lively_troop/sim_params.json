@@ -1,0 +1,12 @@
+{
+  "patches": [
+    { "key": "MaxApeCount", "value": "42" },
+    { "key": "SocialAdultStepChance", "value": "0.095" },
+    { "key": "ParentImitateBaseChance", "value": "0.12" },
+    { "key": "PeerMemoryWanderBias", "value": "0.36" },
+    { "key": "PeerMemoryReinforce", "value": "0.17" },
+    { "key": "ParentImitateYouthMult", "value": "0.42" },
+    { "key": "EastShoreNarrativeTick", "value": "14" },
+    { "key": "CuriosityWanderLively", "value": "0.58" }
+  ]
+}

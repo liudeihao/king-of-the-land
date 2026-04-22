@@ -1,0 +1,10 @@
+{
+  "id": "lively_troop",
+  "name": "热闹族群",
+  "version": "1.0.0",
+  "kind": "content",
+  "loadPriority": 20,
+  "dependencies": [
+    { "id": "landking.core", "version": ">=1.0.0" }
+  ]
+}

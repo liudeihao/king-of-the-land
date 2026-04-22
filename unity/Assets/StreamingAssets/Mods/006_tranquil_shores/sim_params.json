@@ -1,0 +1,8 @@
+{
+  "patches": [
+    { "key": "PredatorCount", "value": "0" },
+    { "key": "PreyCount", "value": "9" },
+    { "key": "KinLossStress", "value": "0.11" },
+    { "key": "StressRelaxPerTick", "value": "0.021" }
+  ]
+}
