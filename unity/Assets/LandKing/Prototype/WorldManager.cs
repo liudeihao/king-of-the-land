@@ -74,7 +74,11 @@ namespace LandKing.Prototype
             _sim.Step();
             if (EventLog != null)
             {
-                foreach (var e in _sim.DrainPendingEvents()) EventLog.Add(e);
+                foreach (var e in _sim.DrainPendingEvents())
+                {
+                    EventLog.Add(e);
+                    if (e.Kind == WorldEventKind.MilestoneFirstDiscovery) MilestoneToast.Instance?.Show(e.Message);
+                }
             }
             foreach (var newId in _sim.PullNewApeViewIds())
             {

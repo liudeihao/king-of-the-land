@@ -10,7 +10,8 @@
       "initialMentorCount": 2,
       "inventContext": 1,
       "eatHungerBonus": 0.042,
-      "foodMemBoost": 0.0
+      "foodMemBoost": 0.0,
+      "milestoneDiscoveryPhrase": "硬壳果可用石块敲裂取食"
     },
     {
       "id": "landking.fruit_scout",
@@ -21,7 +22,8 @@
       "initialMentorCount": 0,
       "inventContext": 1,
       "eatHungerBonus": 0.0,
-      "foodMemBoost": 0.1
+      "foodMemBoost": 0.1,
+      "milestoneDiscoveryPhrase": "多棵好果树的位置能记得更清"
     }
   ]
 }

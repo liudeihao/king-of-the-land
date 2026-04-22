@@ -29,9 +29,12 @@ namespace LandKing.Simulation
         private int _nextPreyId;
         private int _nextPredatorId;
         private readonly WildlifeRuntimeResult _wildMaterialized;
+        private HashSet<string> _milestoneFirstDone;
+        private bool _milestoneEventsEnabled;
 
         public WorldSimulation(int randomSeed = 42, SimParams parameters = null, WildlifeRuntimeResult wildlife = null, CultureRuntimeResult culture = null)
         {
+            _milestoneEventsEnabled = false;
             _initialSeed = randomSeed;
             _p = parameters != null ? parameters.Copy() : SimParams.Default.Copy();
             _wildMaterialized = wildlife ?? WildlifeTableBuilder.FromParamsOnly(_p);
@@ -48,6 +51,8 @@ namespace LandKing.Simulation
             _nextId = PlaceInitialApes(_rng, _apes, leftCells, rightCells, _nextId);
             GrantAllInitialMentors();
             FillDefaultWildlife();
+            _milestoneFirstDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _milestoneEventsEnabled = true;
         }
 
         private WorldSimulation(SimParams p, MapData map, List<ApeCell> apes, int tickCount, int nextId, int initialSeed, SimRng rng,
@@ -97,6 +102,7 @@ namespace LandKing.Simulation
                 prey, preds, npid, npd, fillEmpty, cult);
             sim.LoadChronicleFromSave(data);
             sim.HydrateNarrationFlags();
+            sim.HydrateMilestonesFromSave(data.MilestoneFirstDiscoveryKeys);
             return sim;
         }
 
@@ -179,7 +185,41 @@ namespace LandKing.Simulation
                     };
                 }
             }
+            if (_milestoneFirstDone != null && _milestoneFirstDone.Count > 0)
+            {
+                var mkeys = new string[_milestoneFirstDone.Count];
+                var mi = 0;
+                foreach (var s in _milestoneFirstDone) mkeys[mi++] = s;
+                data.MilestoneFirstDiscoveryKeys = mkeys;
+            }
             return data;
+        }
+
+        private void HydrateMilestonesFromSave(string[] keys)
+        {
+            _milestoneFirstDone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (keys != null)
+            {
+                for (var i = 0; i < keys.Length; i++)
+                {
+                    var s = keys[i];
+                    if (!string.IsNullOrEmpty(s)) _milestoneFirstDone.Add(s.Trim());
+                }
+            }
+            _milestoneEventsEnabled = true;
+        }
+
+        private void TryRecordMilestoneFirstDiscovery(ApeCell a, string skillId)
+        {
+            if (!_milestoneEventsEnabled || a == null || !a.Alive) return;
+            if (string.IsNullOrEmpty(skillId) || _milestoneFirstDone == null) return;
+            if (_milestoneFirstDone.Contains(skillId)) return;
+            if (!_culture.ById.TryGetValue(skillId, out var def) || def == null) return;
+            if (string.IsNullOrEmpty(def.MilestoneDiscoveryPhrase)) return;
+            _milestoneFirstDone.Add(skillId);
+            var place = a.Side == ApeSide.Left ? "西岸" : "东岸";
+            var msg = $"【{place}】聚落的【{Label(a)}】发现【{def.MilestoneDiscoveryPhrase}】";
+            LogEvent(WorldEventKind.MilestoneFirstDiscovery, msg);
         }
 
         private static MapData RebuildMap(int[] tiles, float[] f)
@@ -1493,7 +1533,9 @@ namespace LandKing.Simulation
                     if (cq > 1f) cq = 1f;
                     var pr = def.ObserveLearn * (0.25f + 0.75f * cq);
                     if (_rng.NextDouble() >= pr) continue;
+                    var nBefore = CountAliveWithSkill(def.Id);
                     a.AddCulture(def.Id);
+                    if (nBefore == 0) TryRecordMilestoneFirstDiscovery(a, def.Id);
                     var dn = string.IsNullOrEmpty(def.DisplayName) ? def.Id : def.DisplayName;
                     LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 观摩学会了{dn} (tick {_tickCount})");
                     break;
@@ -1512,7 +1554,9 @@ namespace LandKing.Simulation
                 if (!MeetsPrereqs(a, def)) continue;
                 if (!InventContextSatisfied(a, def)) continue;
                 if (_rng.NextDouble() >= def.InventPerTick) continue;
+                var nBefore = CountAliveWithSkill(def.Id);
                 a.AddCulture(def.Id);
+                if (nBefore == 0) TryRecordMilestoneFirstDiscovery(a, def.Id);
                 var dn = string.IsNullOrEmpty(def.DisplayName) ? def.Id : def.DisplayName;
                 LogEvent(WorldEventKind.SkillLearned, $"{Label(a)} 独自琢磨出了{dn} (tick {_tickCount})");
             }

@@ -131,7 +131,8 @@ namespace LandKing.Simulation
                     InitialMentorCount = e.initialMentorCount,
                     InventContext = (CultureInventContext)System.Math.Max(0, e.inventContext),
                     EatHungerBonus = e.eatHungerBonus,
-                    FoodMemBoost = e.foodMemBoost
+                    FoodMemBoost = e.foodMemBoost,
+                    MilestoneDiscoveryPhrase = string.IsNullOrEmpty(e.milestoneDiscoveryPhrase) ? null : e.milestoneDiscoveryPhrase.Trim()
                 };
                 defs[i] = def;
                 byId[id] = def;

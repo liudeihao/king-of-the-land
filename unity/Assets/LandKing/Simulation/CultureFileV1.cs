@@ -23,5 +23,7 @@ namespace LandKing.Simulation
         public int inventContext;
         public float eatHungerBonus;
         public float foodMemBoost;
+        /// <summary>首次掌握时的叙事句（与 <see cref="CultureSkillDef.MilestoneDiscoveryPhrase"/> 对应）；可缺省=不记里程碑事件。</summary>
+        public string milestoneDiscoveryPhrase;
     }
 }

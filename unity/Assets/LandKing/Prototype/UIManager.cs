@@ -112,6 +112,22 @@ namespace LandKing.Prototype
             scr.viewport = vrt;
             scr.vertical = true;
             if (_eventLog != null) _eventLog.Init(logText, scr);
+            var toastGo = new GameObject("MilestoneToast");
+            toastGo.transform.SetParent(canvas.transform, false);
+            var toastRt = toastGo.AddComponent<RectTransform>();
+            toastRt.anchorMin = new Vector2(0.5f, 1f);
+            toastRt.anchorMax = new Vector2(0.5f, 1f);
+            toastRt.pivot = new Vector2(0.5f, 1f);
+            toastRt.anchoredPosition = new Vector2(0f, -36f);
+            toastRt.sizeDelta = new Vector2(920f, 96f);
+            var toastTx = toastGo.AddComponent<Text>();
+            toastTx.font = _uiFont;
+            toastTx.fontSize = 15;
+            toastTx.alignment = TextAnchor.UpperCenter;
+            toastTx.color = new Color(1f, 0.94f, 0.72f, 1f);
+            toastTx.horizontalOverflow = HorizontalWrapMode.Wrap;
+            toastTx.verticalOverflow = VerticalWrapMode.Overflow;
+            toastGo.AddComponent<MilestoneToast>().Bind(toastTx);
         }
 
         private void Update()

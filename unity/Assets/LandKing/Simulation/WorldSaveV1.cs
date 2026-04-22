@@ -32,6 +32,8 @@ namespace LandKing.Simulation
         public int NextPredatorId;
         public PreySaveV1[] Prey;
         public PredatorSaveV1[] Predators;
+        /// <summary>本局已记录过 <see cref="WorldEventKind.MilestoneFirstDiscovery"/> 的技艺 id；旧档缺省=空。</summary>
+        public string[] MilestoneFirstDiscoveryKeys;
     }
 
     [Serializable]

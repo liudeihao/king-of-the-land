@@ -23,6 +23,8 @@ namespace LandKing.Simulation
         /// <summary>同族相邻扭打，双方挂彩与压力上升（未致死）。</summary>
         ApeConflict = 13,
         /// <summary>在同类冲突中伤重死亡。</summary>
-        ApeKilledInConflict = 14
+        ApeKilledInConflict = 14,
+        /// <summary>本世界首次有活体掌握该技艺；文案由数据 <c>milestoneDiscoveryPhrase</c> 与聚落/个体名拼成（隐式时代锚点）。</summary>
+        MilestoneFirstDiscovery = 15
     }
 }

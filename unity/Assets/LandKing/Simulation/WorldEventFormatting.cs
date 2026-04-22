@@ -24,6 +24,7 @@ namespace LandKing.Simulation
                 WorldEventKind.Predation => "掠食",
                 WorldEventKind.ApeConflict => "扭打",
                 WorldEventKind.ApeKilledInConflict => "斗亡",
+                WorldEventKind.MilestoneFirstDiscovery => "初识",
                 _ => e.Kind.ToString()
             };
             return $"[t{e.Tick}][{tag}] {e.Message}";
