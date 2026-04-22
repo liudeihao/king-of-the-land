@@ -12,6 +12,9 @@ namespace LandKing.Prototype
 
         public void SetSelection(SelectionManager sel) => _sel = sel;
 
+        /// <summary>When true, the camera follows the selected <see cref="Ape"/> when one is selected.</summary>
+        public bool IsFollowing => _followWhenSelected;
+
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.V)) _followWhenSelected = !_followWhenSelected;

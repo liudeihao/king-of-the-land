@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using System.Text;
+using LandKing.Simulation;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace LandKing.Prototype
 {
-    /// <summary>右侧滚动事件记录。对应原型 第七步.</summary>
+    /// <summary>右侧滚动编年史；模拟事件带 tick 与类型标签，系统消息可为纯文本。</summary>
     public sealed class EventLog : MonoBehaviour
     {
         [SerializeField] private int _max = 50;
@@ -24,12 +25,37 @@ namespace LandKing.Prototype
             text.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
+        public void Add(in WorldEventRecord e) => PushLine(FormatLine(e));
+
         public void Add(string line)
         {
             if (line == null) return;
-            _lines.Add(line);
+            PushLine(line);
+        }
+
+        private void PushLine(string s)
+        {
+            _lines.Add(s);
             while (_lines.Count > _max) _lines.RemoveAt(0);
             Rebuild();
+        }
+
+        private static string FormatLine(in WorldEventRecord e)
+        {
+            if (e.Tick < 0) return e.Message ?? string.Empty;
+            var tag = e.Kind switch
+            {
+                WorldEventKind.DroughtStart => "旱起",
+                WorldEventKind.DroughtSevere => "旱情",
+                WorldEventKind.Rain => "降雨",
+                WorldEventKind.Birth => "出生",
+                WorldEventKind.Starvation => "饥亡",
+                WorldEventKind.NaturalDeath => "寿终",
+                WorldEventKind.FoodDepleted => "果尽",
+                WorldEventKind.EastShore => "东岸",
+                _ => e.Kind.ToString()
+            };
+            return $"[t{e.Tick}][{tag}] {e.Message}";
         }
 
         private void Rebuild()

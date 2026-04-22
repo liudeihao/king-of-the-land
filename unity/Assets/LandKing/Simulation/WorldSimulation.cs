@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace LandKing.Simulation
 {
-    /// <summary>Headless world: 里程碑二 + 三（性格、生命阶段、繁殖、简社交）。Tick 分阶段，参数由 <see cref="SimParams"/> 驱动（可与 L1 Mod 合并）。</summary>
+    /// <summary>Headless world: 里程碑二、三、四向（双岸水位、旱灾、东岸叙事、雨干预）；编年史事件为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
         private readonly SimParams _p;
@@ -12,7 +12,7 @@ namespace LandKing.Simulation
         private readonly MapData _map;
         private readonly List<ApeCell> _apes;
         private readonly List<int> _newViewApeIds = new List<int>(4);
-        private readonly List<string> _logQueue = new List<string>(8);
+        private readonly List<WorldEventRecord> _eventQueue = new List<WorldEventRecord>(12);
         private int _tickCount;
         private int _nextId;
         private float _waterLeft = 1f;
@@ -20,6 +20,8 @@ namespace LandKing.Simulation
         private bool _droughtActive;
         private bool _rainUsed;
         private bool _droughtLogged;
+        private bool _droughtSevereLogged;
+        private bool _eastHintLogged;
 
         public WorldSimulation(int randomSeed = 42, SimParams parameters = null)
         {
@@ -59,9 +61,11 @@ namespace LandKing.Simulation
             var map = RebuildMap(data.MapTiles, data.MapFood);
             var apes = RebuildApes(data.Apes);
             var rng = new SimRng(data.RngState);
-            return new WorldSimulation(
+            var sim = new WorldSimulation(
                 p, map, apes, data.TickCount, data.NextId, data.RandomSeed, rng,
                 data.WaterLeft, data.WaterRight, data.DroughtActive, data.RainUsed, data.DroughtLogged);
+            sim.HydrateNarrationFlags();
+            return sim;
         }
 
         public int InitialSeed => _initialSeed;
@@ -132,12 +136,23 @@ namespace LandKing.Simulation
         public bool DroughtActive => _droughtActive;
         public bool RainUsed => _rainUsed;
 
-        public IReadOnlyList<string> StealLogQueue()
+        public IReadOnlyList<WorldEventRecord> StealEventQueue()
         {
-            if (_logQueue.Count == 0) return Array.Empty<string>();
-            var c = _logQueue.ToArray();
-            _logQueue.Clear();
+            if (_eventQueue.Count == 0) return Array.Empty<WorldEventRecord>();
+            var c = _eventQueue.ToArray();
+            _eventQueue.Clear();
             return c;
+        }
+
+        private void LogEvent(WorldEventKind kind, string message)
+        {
+            _eventQueue.Add(new WorldEventRecord { Tick = _tickCount, Kind = kind, Message = message });
+        }
+
+        private void HydrateNarrationFlags()
+        {
+            if (_tickCount >= 20) _eastHintLogged = true;
+            if (_droughtActive && System.Math.Min(_waterLeft, _waterRight) < 0.4f) _droughtSevereLogged = true;
         }
 
         public IReadOnlyList<int> PullNewApeViewIds()
@@ -179,7 +194,8 @@ namespace LandKing.Simulation
             if (!CanShowRain) return;
             _rainUsed = true;
             _waterLeft = _p.RainLeftWater;
-            _logQueue.Add($"降雨发生在河流西侧 (tick {_tickCount})");
+            LogEvent(WorldEventKind.Rain,
+                $"你唤来降雨：西岸（上游）水源得到补充；东岸未同享此雨，蒸发仍在拉低下游水位 (tick {_tickCount})。");
         }
 
         public void Step()
@@ -199,12 +215,23 @@ namespace LandKing.Simulation
             if (_tickCount == _p.DroughtStartTick)
             {
                 _droughtActive = true;
-                if (!_droughtLogged) { _droughtLogged = true; _logQueue.Add($"水位开始下降 (tick {_tickCount})"); }
+                if (!_droughtLogged) { _droughtLogged = true; LogEvent(WorldEventKind.DroughtStart, $"河流水位开始持续下降 (tick {_tickCount})。"); }
             }
             if (_droughtActive)
             {
                 if (!_rainUsed) { _waterLeft = System.Math.Max(0f, _waterLeft - _p.DroughtPerTick); _waterRight = System.Math.Max(0f, _waterRight - _p.DroughtPerTick); }
                 else _waterRight = System.Math.Max(0f, _waterRight - _p.DroughtPerTick);
+                var wMin = System.Math.Min(_waterLeft, _waterRight);
+                if (!_droughtSevereLogged && wMin < 0.4f)
+                {
+                    _droughtSevereLogged = true;
+                    LogEvent(WorldEventKind.DroughtSevere, "旱情加重：两岸果树随水位恢复食物变慢；东岸在降雨前更依赖残存果量。");
+                }
+            }
+            if (!_eastHintLogged && _tickCount == 20)
+            {
+                _eastHintLogged = true;
+                LogEvent(WorldEventKind.EastShore, "东岸果林方向传来猿声——河另一侧还有另一小群同族在活动。");
             }
         }
 
@@ -264,7 +291,7 @@ namespace LandKing.Simulation
             _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id));
             _newViewApeIds.Add(id);
             var ln = !string.IsNullOrEmpty(mother.Nickname) ? mother.Nickname : $"ID{mother.Id}";
-            _logQueue.Add($"{ln} 的孩子出生了 (id {id}, tick {_tickCount})");
+            LogEvent(WorldEventKind.Birth, $"{ln} 的孩子出生了 (id {id}, tick {_tickCount})");
         }
 
         private float Mix(float a, float b)
@@ -391,7 +418,7 @@ namespace LandKing.Simulation
         private void NaturalDeath(ApeCell ape)
         {
             ape.Alive = false;
-            _logQueue.Add($"{Label(ape)} 衰老离世 (tick {_tickCount})");
+            LogEvent(WorldEventKind.NaturalDeath, $"{Label(ape)} 衰老离世 (tick {_tickCount})");
         }
 
         private static string Label(ApeCell a) => !string.IsNullOrEmpty(a.Nickname) ? a.Nickname : $"ID{a.Id}";
@@ -421,7 +448,7 @@ namespace LandKing.Simulation
                 ape.Hunger = System.Math.Min(1f, ape.Hunger + _p.EatHunger);
                 _map.Food[ape.X, ape.Y] -= _p.MinFruitToEat;
                 if (_map.Food[ape.X, ape.Y] < 0f) _map.Food[ape.X, ape.Y] = 0f;
-                if (_map.Food[ape.X, ape.Y] <= 0.01f) _logQueue.Add($"区域({ape.X},{ape.Y})的果树食物耗尽");
+                if (_map.Food[ape.X, ape.Y] <= 0.01f) LogEvent(WorldEventKind.FoodDepleted, $"区域({ape.X},{ape.Y})的果树食物耗尽");
                 return;
             }
             if (ape.Hunger < _p.SeekHungerThreshold)
@@ -442,7 +469,7 @@ namespace LandKing.Simulation
         private void Starve(ApeCell ape)
         {
             ape.Alive = false;
-            _logQueue.Add($"{Label(ape)} 因饥饿死亡 (tick {_tickCount})");
+            LogEvent(WorldEventKind.Starvation, $"{Label(ape)} 因饥饿死亡 (tick {_tickCount})");
         }
 
         private bool TryFindTargetTree(ApeCell ape, out int tx, out int ty)

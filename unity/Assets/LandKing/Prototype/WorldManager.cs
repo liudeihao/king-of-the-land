@@ -70,7 +70,7 @@ namespace LandKing.Prototype
             _sim.Step();
             if (EventLog != null)
             {
-                foreach (var line in _sim.StealLogQueue()) EventLog.Add(line);
+                foreach (var e in _sim.StealEventQueue()) EventLog.Add(e);
             }
             foreach (var newId in _sim.PullNewApeViewIds())
             {

@@ -13,7 +13,8 @@ namespace LandKing.Prototype
             {
                 main.orthographic = true;
                 main.orthographicSize = 10.5f;
-                main.transform.position = new Vector3(10, 10, -10f);
+                // Bias view toward west bank (primary band); east band has the second troop.
+                main.transform.position = new Vector3(5f, 10f, -10f);
             }
             var mods = L1ModLoader.Load();
             L1ModSession.ApplyFrom(mods);

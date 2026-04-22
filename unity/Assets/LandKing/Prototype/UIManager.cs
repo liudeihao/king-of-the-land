@@ -11,6 +11,8 @@ namespace LandKing.Prototype
         [SerializeField] private WorldManager _world;
         [SerializeField] private TimeManager _time;
         [SerializeField] private EventLog _eventLog;
+        [SerializeField] private SelectionManager _selection;
+        [SerializeField] private CameraFollowSelection _cameraFollow;
 
         private Text _hud;
         private Text _detail;
@@ -28,6 +30,7 @@ namespace LandKing.Prototype
             if (_world == null) _world = GetComponent<WorldManager>();
             if (_time == null) _time = GetComponent<TimeManager>();
             if (_eventLog == null) _eventLog = GetComponent<EventLog>();
+            if (_selection == null) _selection = GetComponent<SelectionManager>();
         }
 
         public void SetLoadedMods(L1ModLoader.Result mods) => _mods = mods;
@@ -69,6 +72,12 @@ namespace LandKing.Prototype
             _rain = MkButton(canvas.transform, "降雨", new Vector2(0.5f, 1f), new Vector2(0, -32), new Vector2(100, 28));
             _rain.onClick.AddListener(() => _world?.ApplyRain());
             _rain.gameObject.SetActive(false);
+            if (_cameraFollow == null && Camera.main != null) _cameraFollow = Camera.main.GetComponent<CameraFollowSelection>();
+            var chTitle = MkText(canvas.transform, 12, new Vector2(-8, -8), new Vector2(292, 22), new Vector2(1, 1), new Vector2(1, 1), TextAnchor.UpperRight);
+            chTitle.text = "编年史（本局·时间序，最新在底）";
+            chTitle.alignment = TextAnchor.UpperRight;
+            var chRt = chTitle.GetComponent<RectTransform>();
+            chRt.pivot = new Vector2(1, 1);
             var sc = new GameObject("EventScroll");
             sc.transform.SetParent(canvas.transform, false);
             var srt = sc.AddComponent<RectTransform>();
@@ -109,7 +118,8 @@ namespace LandKing.Prototype
         {
             if (_hud == null || _time == null || _world == null || _world.Sim == null) return;
             var modLine = GetModHudLine();
-            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [V]镜头随选中\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
+            var followLine = GetCameraFollowLine();
+            _hud.text = $"Tick: {Tick()}\n倍速: {_time.TimeScale:0.#}x  [Space]暂停  [1][2][3]  [F5]存 [F9]读  [V]镜头随选中\n{followLine}\n{modLine}\nseed:{_world.Sim.InitialSeed}  西:{_world.Sim.WaterLeft:0.00} 东:{_world.Sim.WaterRight:0.00}";
             if (_current != null)
             {
                 var st = _world.Sim.FindApe(_current.ApeId);
@@ -148,6 +158,16 @@ namespace LandKing.Prototype
         }
 
         private int Tick() => _time.TickCount;
+
+        private string GetCameraFollowLine()
+        {
+            if (_cameraFollow == null && Camera.main != null) _cameraFollow = Camera.main.GetComponent<CameraFollowSelection>();
+            if (_cameraFollow == null) return "镜头: —";
+            if (!_cameraFollow.IsFollowing) return "镜头: 自由（[V] 开启随选中）";
+            var sel = _selection != null ? _selection : GetComponent<SelectionManager>();
+            if (sel == null || sel.Selected == null) return "镜头: 跟随开—点选一只猿以「正在追踪」";
+            return "镜头: 正在追踪";
+        }
 
         private string GetModHudLine()
         {
