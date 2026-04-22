@@ -195,7 +195,8 @@
 
 ### 9.6 与当前仓库的落点
 
-- 约定：`StreamingAssets/Mods/*` 下**可选** `mod.json`；`dependencies` 等字段在**未实现解析器**前可**先写后验**，与 CI/文档检査对齐。  
+- 约定：实现细节与制包清单以 **`docs/实现/L1数据包与校验.md`** 为准（合并序、存读、持久化分桶、失败策略）。  
+- 约定：`StreamingAssets/Mods/*` 下**可选** `mod.json`；`dependencies` 等由 `L1ModLoader` 解析。  
 - 第一方**核心**数据逐步收敛到**独立目录/包 id** 后，第三方即可在 `dependencies` 中声明对 `landking.core` 的依赖；**官方扩展 Mod** 亦同。  
 
 ---
@@ -212,6 +213,7 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| 1.6 | 2026-04-22 | L1 落地：见 `docs/实现/L1数据包与校验.md`；`l1ModIds` 存读、`loadPriority` 同批覆盖序、读档 L1 失败或 id 序不一致时拒绝。 |
 | 1.5 | 2026-04-22 | **§9.4 原型**：`L1ModLoader` 依赖/冲突/版本范围/拓扑序；样例 `000_landking_core` + `001_slower_crisis` 依赖 `landking.core`。 |
 | 1.4 | 2026-04-22 | 新增 **§9 核心 Mod 与依赖解析（草案）**；**§3.1** 与核心 Mod 互链。 |
 | 1.3 | 2026-04-22 | 阶段 A 补注：原型中 `SimParams`、分阶段 Tick、L1 试装（`StreamingAssets/Mods`）。 |

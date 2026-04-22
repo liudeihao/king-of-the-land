@@ -21,6 +21,8 @@ namespace LandKing.Prototype
         public string name;
         public string version;
         public string kind;
+        /// <summary>同层（同一拓扑批次）内合并序：值越小越早合并，值越大越晚合并、覆盖前者；默认 0。</summary>
+        public int loadPriority;
         public ModDependency[] dependencies;
         public string[] conflicts;
     }
@@ -282,6 +284,11 @@ namespace LandKing.Prototype
                         if (!byId.TryGetValue(x, out var inst)) return 1;
                         if (inst.Manifest == null) return 1;
                         return string.Equals(inst.Manifest.kind, "core", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+                    })
+                    .ThenBy(x =>
+                    {
+                        if (!byId.TryGetValue(x, out var inst) || inst.Manifest == null) return 0;
+                        return inst.Manifest.loadPriority;
                     })
                     .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
                     .ToList();

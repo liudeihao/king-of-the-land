@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace LandKing.Prototype
 {
-    /// <summary>将 <see cref="WorldSaveV1"/> 以 JSON 写入 <c>Application.persistentDataPath</c>；可附带 L1 列表与读档时比对提示。</summary>
+    /// <summary>将 <see cref="WorldSaveV1"/> 以 JSON 写入 <c>Application.persistentDataPath</c>；附带 L1 清单与读档校验。</summary>
     public static class GameSaveV1File
     {
         public const string FileName = "landking_save_v1.json";
@@ -18,6 +18,7 @@ namespace LandKing.Prototype
             var data = world.Sim.ExportSave();
             data.l1ModFolders = L1ModSession.Folders;
             data.l1ModDisplayNames = L1ModSession.DisplayNames;
+            data.l1ModIds = L1ModSession.ModIds;
             data.l1ModPersistent = L1ModSession.ToSaveRecords();
             var json = JsonUtility.ToJson(data, true);
             File.WriteAllText(FullPath, json);
@@ -35,9 +36,27 @@ namespace LandKing.Prototype
             try
             {
                 var mods = L1ModLoader.Load();
-                var cult = (mods != null && mods.Success && mods.Culture != null)
-                    ? mods.Culture
-                    : CultureTableBuilder.FromParamsOnly(data.Params != null ? data.Params : SimParams.Default);
+                L1ModSession.ApplyFrom(mods);
+                if (mods == null || !mods.Success)
+                {
+                    if (mods?.Errors != null && mods.Errors.Count > 0) error = "L1 未加载: " + string.Join(" ", mods.Errors);
+                    else error = "L1 加载失败。";
+                    return false;
+                }
+                if (data.l1ModIds != null && data.l1ModIds.Length > 0)
+                {
+                    if (!SameStringSequence(data.l1ModIds, L1ModSession.ModIds))
+                    {
+                        var want = string.Join("->", data.l1ModIds);
+                        var have = L1ModSession.ModIds == null || L1ModSession.ModIds.Length == 0
+                            ? "(无)"
+                            : string.Join("->", L1ModSession.ModIds);
+                        error = "读档拒绝：当前 L1 的 mod id 顺序与存档不一致。存:" + want + " 现:" + have + "。";
+                        return false;
+                    }
+                }
+                var p = data.Params != null ? data.Params : SimParams.Default;
+                var cult = mods.Culture ?? CultureTableBuilder.FromParamsOnly(p);
                 var sim = WorldSimulation.FromSave(data, cult);
                 world.ReplaceSimulation(sim, clearSelection: true);
                 L1ModSession.ApplyPersistentFromSave(data.l1ModPersistent);
@@ -53,11 +72,12 @@ namespace LandKing.Prototype
 
         private static void CompareL1ToSession(WorldSaveV1 data, EventLog log)
         {
+            if (data.l1ModIds != null && data.l1ModIds.Length > 0) return;
             if (data.l1ModFolders == null || data.l1ModFolders.Length == 0) return;
             var cur = L1ModSession.Folders;
             if (cur == null) cur = Array.Empty<string>();
             if (SameStringSequence(data.l1ModFolders, cur)) return;
-            var msg = "读档：当前 L1 组合与存盘时不同 (存: " + string.Join("->", data.l1ModFolders) + " 现: " + string.Join("->", cur) + ")。世界状态以存档内 SimParams 与地图为准。";
+            var msg = "读档：当前 L1 文件夹顺序与存盘时不同 (存: " + string.Join("->", data.l1ModFolders) + " 现: " + string.Join("->", cur) + ")。世界状态以存档内 SimParams 与地图为准。";
             if (log != null) log.Add(msg);
             Debug.LogWarning("[LandKing] " + msg);
         }
