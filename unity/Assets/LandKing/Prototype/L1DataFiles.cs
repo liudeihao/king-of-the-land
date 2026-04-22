@@ -7,6 +7,8 @@ namespace LandKing.Prototype
         public const string SimParams = "sim_params.json";
         public const string Wildlife = "wildlife.json";
         public const string CultureSkills = "culture_skills.json";
+        /// <summary>可选：聚落名与角色称呼池（见 <c>LandKing.Simulation.NarrationNamePools</c>）。</summary>
+        public const string NarrationNames = "narration_names.json";
         /// <summary>可选：新局时合入 L1 会话的初始 JSON 文本，随 F5 写入 <see cref="LandKing.Simulation.L1ModPersistentV1"/>。</summary>
         public const string InitialPersistent = "l1_initial_persistent.json";
     }

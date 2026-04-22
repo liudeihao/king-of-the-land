@@ -36,6 +36,7 @@ namespace LandKing.Prototype
         public bool HasSimParams;
         public bool HasWildlife;
         public bool HasCulture;
+        public bool HasNarrationNames;
     }
 
     /// <summary>从 <c>StreamingAssets/Mods/&lt;folder&gt;/</c> 发现包，解析 <c>mod.json</c> 依赖/冲突，<c>sim_params.json</c> 按解析顺序合并（见 <c>docs/实现/微内核与Mod扩展.md</c> §9）。</summary>
@@ -58,6 +59,7 @@ namespace LandKing.Prototype
 
         public static Result Load()
         {
+            NarrationNamePools.ResetToDefaults();
             var err = new List<string>();
             var def = SimParams.Default.Copy();
             var root = Path.Combine(Application.streamingAssetsPath, ModsSubfolder);
@@ -89,11 +91,13 @@ namespace LandKing.Prototype
                 var paramPath = Path.Combine(dir, L1DataFiles.SimParams);
                 var wildPath = Path.Combine(dir, L1DataFiles.Wildlife);
                 var culturePath = Path.Combine(dir, L1DataFiles.CultureSkills);
+                var narrPath = Path.Combine(dir, L1DataFiles.NarrationNames);
                 var hasMan = File.Exists(manPath);
                 var hasParams = File.Exists(paramPath);
                 var hasWild = File.Exists(wildPath);
                 var hasCulture = File.Exists(culturePath);
-                if (!hasMan && !hasParams && !hasWild && !hasCulture) continue;
+                var hasNarr = File.Exists(narrPath);
+                if (!hasMan && !hasParams && !hasWild && !hasCulture && !hasNarr) continue;
                 ModManifest m = null;
                 if (hasMan) m = JsonUtility.FromJson<ModManifest>(File.ReadAllText(manPath));
                 var id = m != null && !string.IsNullOrEmpty(m.id) ? m.id : folder;
@@ -108,7 +112,8 @@ namespace LandKing.Prototype
                     Manifest = m,
                     HasSimParams = hasParams,
                     HasWildlife = hasWild,
-                    HasCulture = hasCulture
+                    HasCulture = hasCulture,
+                    HasNarrationNames = hasNarr
                 });
             }
 
@@ -130,6 +135,10 @@ namespace LandKing.Prototype
             var idOrder = new List<string>();
             var display = new List<string>();
             var loadOrder = new List<string>();
+            var narrSettlements = new List<string>();
+            var narrCalls = new List<string>();
+            var seenSett = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenCall = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var id in order)
             {
                 var p = packages.First(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
@@ -157,6 +166,41 @@ namespace LandKing.Prototype
                         if (cf != null) cultureFiles.Add(cf);
                     }
                 }
+                if (p.HasNarrationNames)
+                {
+                    try
+                    {
+                        var np = Path.Combine(root, p.Folder, L1DataFiles.NarrationNames);
+                        var njson = File.ReadAllText(np);
+                        if (!string.IsNullOrEmpty(njson))
+                        {
+                            var nf = JsonUtility.FromJson<NarrationNamesFileV1>(njson);
+                            if (nf != null)
+                            {
+                                if (nf.settlements != null)
+                                {
+                                    for (var ni = 0; ni < nf.settlements.Length; ni++)
+                                    {
+                                        var t = (nf.settlements[ni] ?? string.Empty).Trim();
+                                        if (t.Length > 0 && seenSett.Add(t)) narrSettlements.Add(t);
+                                    }
+                                }
+                                if (nf.callNames != null)
+                                {
+                                    for (var ni = 0; ni < nf.callNames.Length; ni++)
+                                    {
+                                        var t = (nf.callNames[ni] ?? string.Empty).Trim();
+                                        if (t.Length > 0 && seenCall.Add(t)) narrCalls.Add(t);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning("[L1] narration_names: " + p.Folder + " — " + ex.Message);
+                    }
+                }
                 folderOrder.Add(p.Folder);
                 idOrder.Add(p.Id);
                 if (p.Manifest != null)
@@ -168,6 +212,9 @@ namespace LandKing.Prototype
                 var k = p.Manifest != null && !string.IsNullOrEmpty(p.Manifest.kind) ? p.Manifest.kind : "content";
                 loadOrder.Add($"{k}:{p.Id}@{p.Version}");
             }
+
+            if (narrSettlements.Count > 0 || narrCalls.Count > 0)
+                NarrationNamePools.InstallMerged(narrSettlements, narrCalls);
 
             var wildlife = WildlifeTableBuilder.Build(sim, wildFiles);
             if (!CultureTableBuilder.TryBuild(sim, cultureFiles, out var culture, out var cultErr))
@@ -191,8 +238,10 @@ namespace LandKing.Prototype
             };
         }
 
-        private static Result Failed(SimParams def, IReadOnlyList<string> e) =>
-            new Result
+        private static Result Failed(SimParams def, IReadOnlyList<string> e)
+        {
+            NarrationNamePools.ResetToDefaults();
+            return new Result
             {
                 Success = false,
                 Sim = def,
@@ -204,6 +253,7 @@ namespace LandKing.Prototype
                 LoadOrderDisplay = Array.Empty<string>(),
                 Errors = e
             };
+        }
 
         private static bool HasConflictErrors(List<ModInstance> packages, List<string> err)
         {
