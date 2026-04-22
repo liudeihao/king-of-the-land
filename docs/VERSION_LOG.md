@@ -14,6 +14,7 @@
 - 2026年4月22日（《微内核与 Mod 扩展》v1.4：新增 **§9 核心 Mod 与依赖解析（草案）**）
 - 2026年4月22日（《微内核》v1.5：L1ModLoader 实现依赖/冲突/版本/拓扑序；样例 `000_landking_core`）
 - 2026年4月22日（原型：存档 v1 + `SimRng`、F5/F9、`landking_save_v1.json`）
+- 2026年4月22日（原型：存盘含 L1 序、读档 Mod 组合比对；`CameraFollowSelection` + [V]）
 
 ## 本次重构解决了什么混乱
 

@@ -16,6 +16,7 @@ namespace LandKing.Prototype
                 main.transform.position = new Vector3(10, 10, -10f);
             }
             var mods = L1ModLoader.Load();
+            L1ModSession.ApplyFrom(mods);
             if (!mods.Success && mods.Errors != null)
             {
                 foreach (var line in mods.Errors)
@@ -42,6 +43,14 @@ namespace LandKing.Prototype
             else
             {
                 if (_logPrefix != null) Debug.LogWarning($"[{_logPrefix}] L1 使用默认 SimParams（见 HUD / Log）。");
+            }
+            if (main != null)
+            {
+                if (main.GetComponent<CameraFollowSelection>() == null)
+                {
+                    var camF = main.gameObject.AddComponent<CameraFollowSelection>();
+                    camF.SetSelection(GetComponent<SelectionManager>());
+                }
             }
         }
     }

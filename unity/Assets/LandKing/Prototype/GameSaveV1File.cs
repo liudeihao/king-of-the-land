@@ -1,10 +1,11 @@
+using System;
 using System.IO;
 using LandKing.Simulation;
 using UnityEngine;
 
 namespace LandKing.Prototype
 {
-    /// <summary>将 <see cref="WorldSaveV1"/> 以 JSON 写入 <c>Application.persistentDataPath</c>；与 L1 并行，后续可加 Mod 集哈希与 schema。</summary>
+    /// <summary>将 <see cref="WorldSaveV1"/> 以 JSON 写入 <c>Application.persistentDataPath</c>；可附带 L1 列表与读档时比对提示。</summary>
     public static class GameSaveV1File
     {
         public const string FileName = "landking_save_v1.json";
@@ -15,6 +16,8 @@ namespace LandKing.Prototype
         {
             if (world == null || world.Sim == null) return;
             var data = world.Sim.ExportSave();
+            data.l1ModFolders = L1ModSession.Folders;
+            data.l1ModDisplayNames = L1ModSession.DisplayNames;
             var json = JsonUtility.ToJson(data, true);
             File.WriteAllText(FullPath, json);
             Debug.Log($"[LandKing] 已存盘: {FullPath} (Tick {data.TickCount}, seed {data.RandomSeed})");
@@ -32,13 +35,37 @@ namespace LandKing.Prototype
             {
                 var sim = WorldSimulation.FromSave(data);
                 world.ReplaceSimulation(sim, clearSelection: true);
+                CompareL1ToSession(data, world.GetComponent<EventLog>());
                 return true;
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 error = e.Message;
                 return false;
             }
+        }
+
+        private static void CompareL1ToSession(WorldSaveV1 data, EventLog log)
+        {
+            if (data.l1ModFolders == null || data.l1ModFolders.Length == 0) return;
+            var cur = L1ModSession.Folders;
+            if (cur == null) cur = Array.Empty<string>();
+            if (SameStringSequence(data.l1ModFolders, cur)) return;
+            var msg = "读档：当前 L1 组合与存盘时不同 (存: " + string.Join("->", data.l1ModFolders) + " 现: " + string.Join("->", cur) + ")。世界状态以存档内 SimParams 与地图为准。";
+            if (log != null) log.Add(msg);
+            Debug.LogWarning("[LandKing] " + msg);
+        }
+
+        private static bool SameStringSequence(string[] a, string[] b)
+        {
+            if (a == null) a = Array.Empty<string>();
+            if (b == null) b = Array.Empty<string>();
+            if (a.Length != b.Length) return false;
+            for (var i = 0; i < a.Length; i++)
+            {
+                if (!string.Equals(a[i] ?? string.Empty, b[i] ?? string.Empty, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            return true;
         }
     }
 }

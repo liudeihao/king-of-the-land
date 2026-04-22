@@ -2,7 +2,7 @@ using System;
 
 namespace LandKing.Simulation
 {
-    /// <summary>存档头与 v1 世界快照（与《微内核》§6 方向一致；不含 Mod 清单，由宿主另外写或后续版本合并）。</summary>
+    /// <summary>存档头与 v1 世界快照（与《微内核》§6 方向一致；Mod 元数据为宿主写入的可选列）。</summary>
     [Serializable]
     public sealed class WorldSaveV1
     {
@@ -20,6 +20,8 @@ namespace LandKing.Simulation
         public int[] MapTiles;
         public float[] MapFood;
         public ApeSaveRecord[] Apes;
+        public string[] l1ModFolders;
+        public string[] l1ModDisplayNames;
     }
 
     [Serializable]
