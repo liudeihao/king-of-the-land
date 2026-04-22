@@ -1,6 +1,7 @@
 {
   "patches": [
     { "key": "DroughtStartTick", "value": "150" },
-    { "key": "DroughtPerTick", "value": "0.001" }
+    { "key": "DroughtPerTick", "value": "0.001" },
+    { "key": "StressRelaxPerTick", "value": "0.022" }
   ]
 }

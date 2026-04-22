@@ -18,6 +18,7 @@
 - 2026年4月22日（原型：`WorldEventRecord`+编年史行；东岸/旱情叙事；首相机偏西；HUD「正在追踪」）
 - 2026年4月22日（最佳实践向：`WorldEventFormatting` 单点、`DrainPendingEvents`、编年史进存档 `Chronicle`、读档重播）
 - 2026年4月22日（`SimParams`：编年史条数+东岸 tick；河色随旱情；[Tab] 环选；HUD 停/Tab）
+- 2026年4月22日（里程碑五起：`ApeState.Stress`、旱/饿/放松/社交抑制；`ApeSaveRecord.Stress`；L1 样例补 `StressRelaxPerTick`）
 
 ## 本次重构解决了什么混乱
 

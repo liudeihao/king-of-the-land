@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace LandKing.Simulation
 {
-    /// <summary>Headless world: 里程碑二、三、四向（双岸水位、旱灾、东岸叙事、雨干预）；编年史事件为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
+    /// <summary>Headless world: 里程碑二、三、四、五起（双岸、旱/雨、东岸叙事、简单压力/社交抑制）；编年史为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
         private readonly SimParams _p;
@@ -275,6 +275,7 @@ namespace LandKing.Simulation
             PhaseIntentAndMovement();
             PhaseMating();
             PhaseSocial();
+            PhaseStress();
         }
 
         private void PhaseEnvironment()
@@ -355,7 +356,8 @@ namespace LandKing.Simulation
             var c = Mix(mother.Courage, sire.Courage);
             var u = Mix(mother.Curiosity, sire.Curiosity);
             var body = 0.85f + (float)_rng.NextDouble() * 0.25f;
-            _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id));
+            var s0 = 0.1f + (float)_rng.NextDouble() * 0.1f;
+            _apes.Add(new ApeCell(id, bx, by, mother.Side, male, 0f, c, u, body, mother.Id, sire.Id, s0));
             _newViewApeIds.Add(id);
             var ln = !string.IsNullOrEmpty(mother.Nickname) ? mother.Nickname : $"ID{mother.Id}";
             LogEvent(WorldEventKind.Birth, $"{ln} 的孩子出生了 (id {id}, tick {_tickCount})");
@@ -459,7 +461,10 @@ namespace LandKing.Simulation
                 if (!a.Alive) continue;
                 if (a.Stage != LifeStage.Adult) continue;
                 if (a.Hunger < _p.SocialMinHunger) continue;
-                if (_rng.NextDouble() >= _p.SocialAdultStepChance) continue;
+                var pSocial = (double)_p.SocialAdultStepChance;
+                if (a.Stress > 0.0001f)
+                    pSocial *= 1.0 - _p.SocialStressInhibit * a.Stress;
+                if (_rng.NextDouble() >= pSocial) continue;
                 ApeCell target = null;
                 var best = 99;
                 for (var j = 0; j < _apes.Count; j++)
@@ -472,6 +477,26 @@ namespace LandKing.Simulation
                     if (d < best) { best = d; target = o; }
                 }
                 if (target != null) StepToward(a, target.X, target.Y);
+            }
+        }
+
+        private void PhaseStress()
+        {
+            for (var i = 0; i < _apes.Count; i++)
+            {
+                var a = _apes[i];
+                if (!a.Alive) continue;
+                var rise = 0f;
+                if (_droughtActive)
+                {
+                    var w = a.X < MapData.RiverX ? _waterLeft : _waterRight;
+                    if (w < 0.999f) rise += _p.StressDroughtScale * (1f - w);
+                }
+                if (a.Hunger < 0.5f) rise += _p.StressHungerScale * (0.5f - a.Hunger);
+                var relax = a.Hunger > 0.65f ? _p.StressRelaxPerTick : _p.StressRelaxPerTick * 0.45f;
+                a.Stress = a.Stress + rise - relax;
+                if (a.Stress < 0f) a.Stress = 0f;
+                if (a.Stress > 1f) a.Stress = 1f;
             }
         }
 
@@ -673,7 +698,8 @@ namespace LandKing.Simulation
                 var cr = (float)(rng.NextDouble() * 2 - 1);
                 var cur = (float)(rng.NextDouble() * 2 - 1);
                 var sc = 0.88f + (float)rng.NextDouble() * 0.2f;
-                apes.Add(new ApeCell(nextId, x, y, side, k % 2 == 0, age, cr, cur, sc, -1, -1));
+                var s0 = 0.1f + (float)rng.NextDouble() * 0.1f;
+                apes.Add(new ApeCell(nextId, x, y, side, k % 2 == 0, age, cr, cur, sc, -1, -1, s0));
                 nextId++;
             }
             return nextId;
@@ -696,13 +722,15 @@ namespace LandKing.Simulation
             public int ParentA = -1, ParentB = -1;
             public int PregnancyCountdown;
             public int SireId = -1;
+            public float Stress = 0.14f;
 
-            public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1)
+            public ApeCell(int id, int x, int y, ApeSide side, bool male, float age, float courage, float curiosity, float body, int p0, int p1, float initialStress = 0.14f)
             {
                 Id = id; X = x; Y = y; Side = side; IsMale = male;
                 Age = age; Courage = courage; Curiosity = curiosity; BodyScale = body;
                 ParentA = p0; ParentB = p1;
                 Stage = LifeStageUtil.FromAge(age);
+                Stress = initialStress;
             }
 
             public ApeSaveRecord ToSave() => new ApeSaveRecord
@@ -724,7 +752,8 @@ namespace LandKing.Simulation
                 ParentA = ParentA,
                 ParentB = ParentB,
                 PregnancyCountdown = PregnancyCountdown,
-                SireId = SireId
+                SireId = SireId,
+                Stress = Stress
             };
 
             public static ApeCell FromSave(ApeSaveRecord r)
@@ -748,7 +777,8 @@ namespace LandKing.Simulation
                     ParentA = r.ParentA,
                     ParentB = r.ParentB,
                     PregnancyCountdown = r.PregnancyCountdown,
-                    SireId = r.SireId
+                    SireId = r.SireId,
+                    Stress = r.Stress
                 };
             }
 
@@ -771,7 +801,8 @@ namespace LandKing.Simulation
                 Stage = Stage,
                 ParentId0 = ParentA,
                 ParentId1 = ParentB,
-                BodyScale = BodyScale
+                BodyScale = BodyScale,
+                Stress = Stress
             };
         }
     }

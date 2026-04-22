@@ -34,6 +34,14 @@ namespace LandKing.Simulation
         public int ChronicleMaxEntries = 64;
         /// <summary>东岸同族提示触发 tick，0=不触发。</summary>
         public int EastShoreNarrativeTick = 20;
+        /// <summary>简化压力：旱时随本侧水位低而每 tick 上升，系数。</summary>
+        public float StressDroughtScale = 0.012f;
+        /// <summary>饥饿 &lt; 0.5 时按缺口增加压力/ tick。</summary>
+        public float StressHungerScale = 0.045f;
+        /// <summary>向平静回落；饱腹时回得更快（在 PhaseStress 内乘子）。</summary>
+        public float StressRelaxPerTick = 0.018f;
+        /// <summary>成年社交步进概率再乘 (1 - 本系数×压力)。</summary>
+        public float SocialStressInhibit = 0.45f;
 
         public SimParams Copy()
         {

@@ -134,6 +134,7 @@ namespace LandKing.Prototype
                         $"体型: {a.BodyScale:0.00}   勇气/好奇: {a.Courage:0.0#} / {a.Curiosity:0.0#}\n" +
                         $"亲缘: {ParentsText(a.ParentId0, a.ParentId1)}\n" +
                         $"饥饿: {a.Hunger * 100f:0}%   健康: {a.Health * 100f:0}%\n" +
+                        $"压力: {a.Stress * 100f:0}% ({StressWord(a.Stress)})\n" +
                         $"年龄: {a.Age:0.0} 年   面: {(a.Side == ApeSide.Left ? "西" : "东")}\n" +
                         (a.Alive
                             ? (a.Hunger < 0.7f ? "状态: 觅食" : "状态: 游荡")
@@ -178,6 +179,14 @@ namespace LandKing.Prototype
             if (_mods.ModDisplayNames == null || _mods.ModDisplayNames.Count == 0)
                 return "L1 Mod: 无 (Mods 下无 mod.json 且含 sim_params 的包)";
             return "L1: " + string.Join(" -> ", _mods.ModDisplayNames);
+        }
+
+        private static string StressWord(float s)
+        {
+            if (s < 0.25f) return "平静";
+            if (s < 0.5f) return "略紧";
+            if (s < 0.75f) return "偏紧";
+            return "高压力";
         }
 
         private static string StageName(LifeStage s) => s switch

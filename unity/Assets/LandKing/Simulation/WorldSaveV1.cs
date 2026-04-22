@@ -54,5 +54,7 @@ namespace LandKing.Simulation
         public int ParentB;
         public int PregnancyCountdown;
         public int SireId;
+        /// <summary>0..1；旧档无此字段时反序列化为 0。</summary>
+        public float Stress;
     }
 }
