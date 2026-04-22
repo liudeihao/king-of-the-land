@@ -20,8 +20,18 @@ namespace LandKing.Simulation
         public int[] MapTiles;
         public float[] MapFood;
         public ApeSaveRecord[] Apes;
+        /// <summary>Last ~64 world events; optional for 旧档兼容。</summary>
+        public WorldEventSaveV1[] Chronicle;
         public string[] l1ModFolders;
         public string[] l1ModDisplayNames;
+    }
+
+    [Serializable]
+    public sealed class WorldEventSaveV1
+    {
+        public int Tick;
+        public int Kind;
+        public string Message;
     }
 
     [Serializable]

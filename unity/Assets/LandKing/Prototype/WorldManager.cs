@@ -40,7 +40,7 @@ namespace LandKing.Prototype
             _apes.Clear();
             if (_map != null) _map.Build(_sim);
             SpawnApeViewObjects();
-            if (EventLog != null) EventLog.Add("已从存档恢复世界。");
+            if (EventLog != null) EventLog.RebuildFromChronicle(_sim.GetChronicleSnapshot(), "已从存档恢复世界。");
             if (clearSelection) GetComponent<SelectionManager>()?.Set(null);
         }
 
@@ -70,7 +70,7 @@ namespace LandKing.Prototype
             _sim.Step();
             if (EventLog != null)
             {
-                foreach (var e in _sim.StealEventQueue()) EventLog.Add(e);
+                foreach (var e in _sim.DrainPendingEvents()) EventLog.Add(e);
             }
             foreach (var newId in _sim.PullNewApeViewIds())
             {

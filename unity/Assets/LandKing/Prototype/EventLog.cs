@@ -25,7 +25,7 @@ namespace LandKing.Prototype
             text.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
-        public void Add(in WorldEventRecord e) => PushLine(FormatLine(e));
+        public void Add(in WorldEventRecord e) => PushLine(WorldEventFormatting.ToDisplayString(e));
 
         public void Add(string line)
         {
@@ -33,29 +33,31 @@ namespace LandKing.Prototype
             PushLine(line);
         }
 
-        private void PushLine(string s)
+        /// <summary>读档时：以存档内编年史重绘，再追加一条系统提示；之后模拟产生的新事件仍用 <c>Add</c> 重载逐条追加。</summary>
+        public void RebuildFromChronicle(IReadOnlyList<WorldEventRecord> chronicle, string systemTail = null)
         {
-            _lines.Add(s);
-            while (_lines.Count > _max) _lines.RemoveAt(0);
+            _lines.Clear();
+            if (chronicle != null)
+            {
+                for (var i = 0; i < chronicle.Count; i++)
+                {
+                    _lines.Add(WorldEventFormatting.ToDisplayString(chronicle[i]));
+                    while (_lines.Count > _max) _lines.RemoveAt(0);
+                }
+            }
+            if (!string.IsNullOrEmpty(systemTail))
+            {
+                _lines.Add(systemTail);
+                while (_lines.Count > _max) _lines.RemoveAt(0);
+            }
             Rebuild();
         }
 
-        private static string FormatLine(in WorldEventRecord e)
+        private void PushLine(string s, bool trimHead = true)
         {
-            if (e.Tick < 0) return e.Message ?? string.Empty;
-            var tag = e.Kind switch
-            {
-                WorldEventKind.DroughtStart => "旱起",
-                WorldEventKind.DroughtSevere => "旱情",
-                WorldEventKind.Rain => "降雨",
-                WorldEventKind.Birth => "出生",
-                WorldEventKind.Starvation => "饥亡",
-                WorldEventKind.NaturalDeath => "寿终",
-                WorldEventKind.FoodDepleted => "果尽",
-                WorldEventKind.EastShore => "东岸",
-                _ => e.Kind.ToString()
-            };
-            return $"[t{e.Tick}][{tag}] {e.Message}";
+            _lines.Add(s);
+            while (trimHead && _lines.Count > _max) _lines.RemoveAt(0);
+            Rebuild();
         }
 
         private void Rebuild()

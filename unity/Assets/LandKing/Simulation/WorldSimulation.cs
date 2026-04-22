@@ -6,6 +6,8 @@ namespace LandKing.Simulation
     /// <summary>Headless world: 里程碑二、三、四向（双岸水位、旱灾、东岸叙事、雨干预）；编年史事件为 <see cref="WorldEventRecord"/>。Tick 分阶段，<see cref="SimParams"/>（可与 L1 合并）。</summary>
     public sealed class WorldSimulation
     {
+        private const int ChronicleMaxEntries = 64;
+
         private readonly SimParams _p;
         private SimRng _rng;
         private readonly int _initialSeed;
@@ -13,6 +15,7 @@ namespace LandKing.Simulation
         private readonly List<ApeCell> _apes;
         private readonly List<int> _newViewApeIds = new List<int>(4);
         private readonly List<WorldEventRecord> _eventQueue = new List<WorldEventRecord>(12);
+        private List<WorldEventRecord> _chronicle;
         private int _tickCount;
         private int _nextId;
         private float _waterLeft = 1f;
@@ -25,6 +28,7 @@ namespace LandKing.Simulation
 
         public WorldSimulation(int randomSeed = 42, SimParams parameters = null)
         {
+            _chronicle = new List<WorldEventRecord>(ChronicleMaxEntries);
             _initialSeed = randomSeed;
             _p = parameters != null ? parameters.Copy() : SimParams.Default.Copy();
             _rng = new SimRng(randomSeed);
@@ -64,6 +68,7 @@ namespace LandKing.Simulation
             var sim = new WorldSimulation(
                 p, map, apes, data.TickCount, data.NextId, data.RandomSeed, rng,
                 data.WaterLeft, data.WaterRight, data.DroughtActive, data.RainUsed, data.DroughtLogged);
+            sim.LoadChronicleFromSave(data);
             sim.HydrateNarrationFlags();
             return sim;
         }
@@ -85,7 +90,7 @@ namespace LandKing.Simulation
             }
             var rec = new ApeSaveRecord[_apes.Count];
             for (var i = 0; i < _apes.Count; i++) rec[i] = _apes[i].ToSave();
-            return new WorldSaveV1
+            var data = new WorldSaveV1
             {
                 Schema = 1,
                 RandomSeed = _initialSeed,
@@ -102,6 +107,22 @@ namespace LandKing.Simulation
                 MapFood = food,
                 Apes = rec
             };
+            if (_chronicle != null && _chronicle.Count > 0)
+            {
+                var cn = _chronicle.Count;
+                data.Chronicle = new WorldEventSaveV1[cn];
+                for (var i = 0; i < cn; i++)
+                {
+                    var e = _chronicle[i];
+                    data.Chronicle[i] = new WorldEventSaveV1
+                    {
+                        Tick = e.Tick,
+                        Kind = (int)e.Kind,
+                        Message = e.Message ?? string.Empty
+                    };
+                }
+            }
+            return data;
         }
 
         private static MapData RebuildMap(int[] tiles, float[] f)
@@ -136,7 +157,8 @@ namespace LandKing.Simulation
         public bool DroughtActive => _droughtActive;
         public bool RainUsed => _rainUsed;
 
-        public IReadOnlyList<WorldEventRecord> StealEventQueue()
+        /// <summary>Consumes events emitted this tick (or via <see cref="ApplyRain"/>) for UI; does not include chronicle history.</summary>
+        public IReadOnlyList<WorldEventRecord> DrainPendingEvents()
         {
             if (_eventQueue.Count == 0) return Array.Empty<WorldEventRecord>();
             var c = _eventQueue.ToArray();
@@ -144,15 +166,50 @@ namespace LandKing.Simulation
             return c;
         }
 
+        /// <summary>Last entries for persistence / 读档重播（环形 cap 64）。</summary>
+        public IReadOnlyList<WorldEventRecord> GetChronicleSnapshot()
+        {
+            if (_chronicle == null || _chronicle.Count == 0) return Array.Empty<WorldEventRecord>();
+            return _chronicle;
+        }
+
         private void LogEvent(WorldEventKind kind, string message)
         {
-            _eventQueue.Add(new WorldEventRecord { Tick = _tickCount, Kind = kind, Message = message });
+            var rec = new WorldEventRecord { Tick = _tickCount, Kind = kind, Message = message };
+            _eventQueue.Add(rec);
+            if (_chronicle == null) _chronicle = new List<WorldEventRecord>(ChronicleMaxEntries);
+            _chronicle.Add(rec);
+            while (_chronicle.Count > ChronicleMaxEntries) _chronicle.RemoveAt(0);
         }
 
         private void HydrateNarrationFlags()
         {
             if (_tickCount >= 20) _eastHintLogged = true;
             if (_droughtActive && System.Math.Min(_waterLeft, _waterRight) < 0.4f) _droughtSevereLogged = true;
+        }
+
+        private void LoadChronicleFromSave(WorldSaveV1 data)
+        {
+            _chronicle = new List<WorldEventRecord>(ChronicleMaxEntries);
+            if (data.Chronicle == null) return;
+            for (var i = 0; i < data.Chronicle.Length; i++)
+            {
+                var s = data.Chronicle[i];
+                if (s == null) continue;
+                _chronicle.Add(new WorldEventRecord
+                {
+                    Tick = s.Tick,
+                    Kind = ToKindClamped(s.Kind),
+                    Message = s.Message ?? string.Empty
+                });
+            }
+            while (_chronicle.Count > ChronicleMaxEntries) _chronicle.RemoveAt(0);
+        }
+
+        private static WorldEventKind ToKindClamped(int raw)
+        {
+            if (Enum.IsDefined(typeof(WorldEventKind), raw)) return (WorldEventKind)raw;
+            return WorldEventKind.System;
         }
 
         public IReadOnlyList<int> PullNewApeViewIds()

@@ -16,6 +16,7 @@
 - 2026年4月22日（原型：存档 v1 + `SimRng`、F5/F9、`landking_save_v1.json`）
 - 2026年4月22日（原型：存盘含 L1 序、读档 Mod 组合比对；`CameraFollowSelection` + [V]）
 - 2026年4月22日（原型：`WorldEventRecord`+编年史行；东岸/旱情叙事；首相机偏西；HUD「正在追踪」）
+- 2026年4月22日（最佳实践向：`WorldEventFormatting` 单点、`DrainPendingEvents`、编年史进存档 `Chronicle`、读档重播）
 
 ## 本次重构解决了什么混乱
 
