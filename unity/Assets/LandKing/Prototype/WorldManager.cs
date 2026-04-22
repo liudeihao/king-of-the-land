@@ -21,7 +21,7 @@ namespace LandKing.Prototype
 
         public void SetEventLog(EventLog log) => EventLog = log;
 
-        public void Build(int randomSeed = 42, SimParams simParams = null, WildlifeRuntimeResult wildlife = null, CultureRuntimeResult culture = null)
+        public void Build(int randomSeed = 42, SimParams simParams = null, WildlifeRuntimeResult wildlife = null, CultureRuntimeResult culture = null, L1ModLoader.Result l1 = null)
         {
             _apeRoot = new GameObject("Apes").transform;
             _apeRoot.SetParent(transform, false);
@@ -29,6 +29,7 @@ namespace LandKing.Prototype
             go.transform.SetParent(transform, false);
             _map = go.AddComponent<MapGenerator>();
             _sim = new WorldSimulation(randomSeed, simParams, wildlife, culture);
+            L1ModPersistence.OnNewGame(l1);
             SpawnApeAndMapViews();
         }
 

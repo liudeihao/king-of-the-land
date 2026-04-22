@@ -24,10 +24,19 @@ namespace LandKing.Simulation
         public WorldEventSaveV1[] Chronicle;
         public string[] l1ModFolders;
         public string[] l1ModDisplayNames;
+        /// <summary>L1 各 Mod 可写的 JSON 分桶（Mod 内无代码时由 <c>l1_initial_persistent.json</c> 或首方逻辑填充）。</summary>
+        public L1ModPersistentV1[] l1ModPersistent;
         public int NextPreyId;
         public int NextPredatorId;
         public PreySaveV1[] Prey;
         public PredatorSaveV1[] Predators;
+    }
+
+    [Serializable]
+    public sealed class L1ModPersistentV1
+    {
+        public string modId;
+        public string dataJson;
     }
 
     [Serializable]

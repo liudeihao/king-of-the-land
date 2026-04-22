@@ -42,7 +42,11 @@ namespace LandKing.Prototype
             {
                 if (string.Equals(SimParamInstanceFields[i].Name, key, StringComparison.OrdinalIgnoreCase)) { field = SimParamInstanceFields[i]; break; }
             }
-            if (field == null) return;
+            if (field == null)
+            {
+                Debug.LogWarning($"[L1] sim_params: unknown field \"{key}\" ignored. Use a public field name on SimParams.");
+                return;
+            }
             var ft = field.FieldType;
             if (ft == typeof(int))
             {

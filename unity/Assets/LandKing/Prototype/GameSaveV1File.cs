@@ -18,6 +18,7 @@ namespace LandKing.Prototype
             var data = world.Sim.ExportSave();
             data.l1ModFolders = L1ModSession.Folders;
             data.l1ModDisplayNames = L1ModSession.DisplayNames;
+            data.l1ModPersistent = L1ModSession.ToSaveRecords();
             var json = JsonUtility.ToJson(data, true);
             File.WriteAllText(FullPath, json);
             Debug.Log($"[LandKing] 已存盘: {FullPath} (Tick {data.TickCount}, seed {data.RandomSeed})");
@@ -39,6 +40,7 @@ namespace LandKing.Prototype
                     : CultureTableBuilder.FromParamsOnly(data.Params != null ? data.Params : SimParams.Default);
                 var sim = WorldSimulation.FromSave(data, cult);
                 world.ReplaceSimulation(sim, clearSelection: true);
+                L1ModSession.ApplyPersistentFromSave(data.l1ModPersistent);
                 CompareL1ToSession(data, world.GetComponent<EventLog>());
                 return true;
             }
