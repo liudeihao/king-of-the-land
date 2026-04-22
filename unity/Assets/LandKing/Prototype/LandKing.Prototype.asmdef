@@ -1,0 +1,16 @@
+{
+    "name": "LandKing.Prototype",
+    "rootNamespace": "LandKing.Prototype",
+    "references": [
+        "LandKing.Simulation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

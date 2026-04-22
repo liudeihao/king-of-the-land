@@ -9,3 +9,7 @@
 
 - 实现与引擎约定见 [`docs/实现/技术选型.md`](../docs/实现/技术选型.md)、[`docs/实现/原型构建步骤.md`](../docs/实现/原型构建步骤.md)。
 - 勿将 `docs/` 或规格 Markdown 放入 `Assets/`，与仓库根 `docs/` 保持分离。
+
+## 里程碑二原型
+
+在 **SampleScene** 中按 **Play**：由 `LandKing.Prototype.PrototypeEntry` 自动生成 `PrototypeGameRoot`，运行 20×20 地图、10 只猿、Tick 与旱灾/降雨。详细行为见 `docs/实现/原型构建步骤.md`。
