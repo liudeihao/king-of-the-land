@@ -42,6 +42,12 @@ namespace LandKing.Simulation
         public float StressRelaxPerTick = 0.018f;
         /// <summary>成年社交步进概率再乘 (1 - 本系数×压力)。</summary>
         public float SocialStressInhibit = 0.45f;
+        /// <summary>高压力时游荡「僵一下」：概率上界 ≈ <c>Stress×本值</c>。</summary>
+        public float StressWanderFreeze = 0.11f;
+        /// <summary>「记得那棵果」每 tick 线性衰减；0=仅靠树枯等扣记忆。将 FoodMemoryDistanceBias 置 0 可关闭记忆系统。</summary>
+        public float FoodMemoryDecayPerTick = 0.007f;
+        /// <summary>觅食选树时，记忆格等效减去的格距（再乘记忆强度 0..1）。</summary>
+        public float FoodMemoryDistanceBias = 2.2f;
 
         public SimParams Copy()
         {

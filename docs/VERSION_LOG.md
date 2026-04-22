@@ -19,6 +19,7 @@
 - 2026年4月22日（最佳实践向：`WorldEventFormatting` 单点、`DrainPendingEvents`、编年史进存档 `Chronicle`、读档重播）
 - 2026年4月22日（`SimParams`：编年史条数+东岸 tick；河色随旱情；[Tab] 环选；HUD 停/Tab）
 - 2026年4月22日（里程碑五起：`ApeState.Stress`、旱/饿/放松/社交抑制；`ApeSaveRecord.Stress`；L1 样例补 `StressRelaxPerTick`）
+- 2026年4月22日（压力→游荡僵停；果树地点记忆+衰减+觅食偏置；`FoodMem*` 存档与 HUD）
 
 ## 本次重构解决了什么混乱
 

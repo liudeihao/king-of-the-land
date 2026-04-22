@@ -56,5 +56,9 @@ namespace LandKing.Simulation
         public int SireId;
         /// <summary>0..1；旧档无此字段时反序列化为 0。</summary>
         public float Stress;
+        /// <summary>记忆为 0 时坐标忽略。旧档=无记忆。</summary>
+        public int FoodMemX;
+        public int FoodMemY;
+        public float FoodMemStrength;
     }
 }

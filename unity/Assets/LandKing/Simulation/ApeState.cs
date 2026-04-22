@@ -1,7 +1,7 @@
 namespace LandKing.Simulation
 {
     /// <summary>
-    /// 可观察的猿状态（里程碑二起；里程碑三增加性格/性别/亲缘/生命阶段；里程碑五起压力）。
+    /// 可观察的猿状态（里程碑二起；里程碑三性格/亲缘；里程碑五压力与地点记忆强度）。
     /// </summary>
     public struct ApeState
     {
@@ -11,6 +11,8 @@ namespace LandKing.Simulation
         public float Age;
         /// <summary>0=平静 1=紧绷（简化情绪轴）。</summary>
         public float Stress;
+        /// <summary>0..1，最近饱食果树的地点记忆强度。</summary>
+        public float FoodMemoryStrength;
         public bool Alive;
         public string Nickname;
         public int GridX;
